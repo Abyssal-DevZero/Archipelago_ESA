@@ -55,14 +55,14 @@ def connect_regions(world: ESAWorld) -> None:
     # Cave Complex
     cave_complex.connect(depths, "Cave Complex to Depths")
     cave_complex.connect(sandrock_sector, "Cave Complex to Sandrock Sector")
-    cave_complex.connect(underwater_secotr, "Cave Complex to Underwater Sector")
+    cave_complex.connect(underwater_sector, "Cave Complex to Underwater Sector")
     cave_complex.connect(jungle_sector, "Cave Complex to Jungle Sector")
     cave_complex.connect(ai_mainframe, "Cave Complex to A.I. Mainframe")
     cave_complex.connect(derelict_ship, "Cave Complex to Derelict Ship")
 
     #Depths
     depths.connect (cave_complex, "Depths to Cave_Complex")
-    depths.connect (volvanic_sector, "Depths to Cave_Complex")
+    depths.connect (volcanic_sector, "Depths to Cave_Complex")
     depths.connect (control_hub, "Depths to Cave_Complex")
     depths.connect (sandrock_sector, "Depths to Cave_Complex")
 
