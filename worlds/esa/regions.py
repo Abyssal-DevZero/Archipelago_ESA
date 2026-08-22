@@ -53,19 +53,6 @@ def connect_regions(world: ESAWorld) -> None:
 
     # Also derived from https://environmental-station-alpha.fandom.com/wiki/Station_Map and the respective Areas
     # Cave Complex
-    cave_to_depths = Entrance(world.player, "Cave Complex to Depths", parent=overworld)
-    cave_complex.exits.append(ocave_to_depths)
-    cave_to_sandrock = Entrance(world.player, "Cave Complex to Sandrock Sector", parent=overworld)
-    cave_complex.exits.append(ocave_to_depths)
-    cave_to_underwater = Entrance(world.player, "Cave Complex to Underwater Sector", parent=overworld)
-    cave_complex.exits.append(ocave_to_depths)
-    cave_to_jungle = Entrance(world.player, "Cave Complex to Jungle Sector", parent=overworld)
-    cave_complex.exits.append(ocave_to_depths)
-    cave_to_mainframe = Entrance(world.player, "Cave Complex to A.I. Mainframe", parent=overworld)
-    cave_complex.exits.append(ocave_to_depths)
-    cave_to_derelict = Entrance(world.player, "Cave Complex to Derelict Ship", parent=overworld)
-    cave_complex.exits.append(ocave_to_depths)
-  
     cave_complex.connect(depths, "Cave Complex to Depths")
     cave_complex.connect(sandrock_sector, "Cave Complex to Sandrock Sector")
     cave_complex.connect(underwater_secotr, "Cave Complex to Underwater Sector")
@@ -73,17 +60,54 @@ def connect_regions(world: ESAWorld) -> None:
     cave_complex.connect(ai_mainframe, "Cave Complex to A.I. Mainframe")
     cave_complex.connect(derelict_ship, "Cave Complex to Derelict Ship")
 
-    # An even easier way is to use the region.connect helper.
-    overworld.connect(right_room, "Overworld to Right Room")
-    right_room.connect(final_boss_room, "Right Room to Final Boss Room")
+    #Depths
+    depths.connect (cave_complex, "Depths to Cave_Complex")
+    depths.connect (volvanic_sector, "Depths to Cave_Complex")
+    depths.connect (control_hub, "Depths to Cave_Complex")
+    depths.connect (sandrock_sector, "Depths to Cave_Complex")
 
-    # The region.connect helper even allows adding a rule immediately.
-    # We'll talk more about rule creation in the set_all_rules() function in rules.py.
-    overworld.connect(top_left_room, "Overworld to Top Left Room", lambda state: state.has("Key", world.player))
+    #Volcanic Sector
+    volcanic_sector.connect (depths, "Depths to Cave_Complex")
+    volcanic_sector.connect (ai_mainframe, "Depths to Cave_Complex")
+    volcanic_sector.connect (temple, "Depths to Cave_Complex")
 
-    # Some Entrances may only exist if the player enables certain options.
-    # In our case, the Hammer locks the top middle chest in its own room if the hammer option is enabled.
-    # In this case, we previously created an extra "Top Middle Room" region that we now need to connect to Overworld.
-    if world.options.hammer:
-        top_middle_room = world.get_region("Top Middle Room")
-        overworld.connect(top_middle_room, "Overworld to Top Middle Room")
+    #Underwater Sector
+    underwater_sector.connect (cave_complex, "Depths to Cave_Complex")
+    underwater_sector.connect (sandrock_sector, "Depths to Cave_Complex")
+
+    #Sandrock Sector
+    sandrock_sector.connect (cave_complex, "Depths to Cave_Complex")
+    sandrock_sector.connect (depths, "Depths to Cave_Complex")
+    sandrock_sector.connect (control_hub, "Depths to Cave_Complex")
+    sandrock_sector.connect (underwater_sector, "Depths to Cave_Complex")
+
+    #Jungle Sector
+    jungle_sector.connect (cave_complex, "Depths to Cave_Complex")
+    jungle_sector.connect (ai_mainframe, "Depths to Cave_Complex")
+    jungle_sector.connect (temple, "Depths to Cave_Complex")
+
+    #Temple
+    temple.connect (ai_mainframe, "Depths to Cave_Complex")
+    temple.connect (volcanic_sector, "Depths to Cave_Complex")
+    temple.connect (jungle_sector, "Depths to Cave_Complex")
+
+    #Derelict Ship
+    derelict_ship.connect (cave_complex, "Depths to Cave_Complex")
+
+    #Control Hub
+    control_hub.connect (depths, "Depths to Cave_Complex")
+    control_hub.connect (sandrock_sector, "Depths to Cave_Complex")
+
+    #A.I. Mainframe
+    ai_mainframe.connect (cave_complex, "Depths to Cave_Complex")
+    ai_mainframe.connect (volcanic_sector, "Depths to Cave_Complex")
+    ai_mainframe.connect (jungle_sector, "Depths to Cave_Complex")
+    ai_mainframe.connect (temple, "Depths to Cave_Complex")
+
+   #TO-DO: Conditions for connections
+    #overworld.connect(top_left_room, "Overworld to Top Left Room", lambda state: state.has("Key", world.player))
+
+    # TO-DO options ffor connections
+    #if world.options.hammer:
+        #top_middle_room = world.get_region("Top Middle Room")
+        #overworld.connect(top_middle_room, "Overworld to Top Middle Room")
