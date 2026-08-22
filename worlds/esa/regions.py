@@ -62,47 +62,47 @@ def connect_regions(world: ESAWorld) -> None:
 
     #Depths
     depths.connect (cave_complex, "Depths to Cave_Complex")
-    depths.connect (volcanic_sector, "Depths to Cave_Complex")
-    depths.connect (control_hub, "Depths to Cave_Complex")
-    depths.connect (sandrock_sector, "Depths to Cave_Complex")
+    depths.connect (volcanic_sector, "The Depths to Volcanic Sector")
+    depths.connect (control_hub, "Depths to Control Hub")
+    depths.connect (sandrock_sector, "Depths to Sandrock Sector")
 
     #Volcanic Sector
-    volcanic_sector.connect (depths, "Depths to Cave_Complex")
-    volcanic_sector.connect (ai_mainframe, "Depths to Cave_Complex")
-    volcanic_sector.connect (temple, "Depths to Cave_Complex")
+    volcanic_sector.connect (depths, "Volcanic Sector to Depths")
+    volcanic_sector.connect (ai_mainframe, "Volcanic Sector to AI Mainframe")
+    volcanic_sector.connect (temple, "Volcanic Sector to Temple")
 
     #Underwater Sector
-    underwater_sector.connect (cave_complex, "Depths to Cave_Complex")
-    underwater_sector.connect (sandrock_sector, "Depths to Cave_Complex")
+    underwater_sector.connect (cave_complex, "Underwater Sector to Cave_Complex")
+    underwater_sector.connect (sandrock_sector, "Underwater Sector to Sandrock Sector")
 
     #Sandrock Sector
-    sandrock_sector.connect (cave_complex, "Depths to Cave_Complex")
-    sandrock_sector.connect (depths, "Depths to Cave_Complex")
-    sandrock_sector.connect (control_hub, "Depths to Cave_Complex")
-    sandrock_sector.connect (underwater_sector, "Depths to Cave_Complex")
+    sandrock_sector.connect (cave_complex, "Sandrock Sector to Cave_Complex")
+    sandrock_sector.connect (depths, "Sandrock Sector to Depths")
+    sandrock_sector.connect (control_hub, "Sandrock Sector to Control Hub")
+    sandrock_sector.connect (underwater_sector, "Sandrock Sector to Underwater Sector")
 
     #Jungle Sector
-    jungle_sector.connect (cave_complex, "Depths to Cave_Complex")
-    jungle_sector.connect (ai_mainframe, "Depths to Cave_Complex")
-    jungle_sector.connect (temple, "Depths to Cave_Complex")
+    jungle_sector.connect (cave_complex, "Jungle Sector to Cave_Complex")
+    jungle_sector.connect (ai_mainframe, "Jungle Sector to AI Mainframe")
+    jungle_sector.connect (temple, "Jungle Sector to Temple")
 
     #Temple
-    temple.connect (ai_mainframe, "Depths to Cave_Complex")
-    temple.connect (volcanic_sector, "Depths to Cave_Complex")
-    temple.connect (jungle_sector, "Depths to Cave_Complex")
+    temple.connect (ai_mainframe, "Temple to AI Mainframe")
+    temple.connect (volcanic_sector, "Temple to Volcanic Sector")
+    temple.connect (jungle_sector, "Temple to Jungle Sector")
 
     #Derelict Ship
-    derelict_ship.connect (cave_complex, "Depths to Cave_Complex")
+    derelict_ship.connect (cave_complex, "Derelict Ship to Cave_Complex")
 
     #Control Hub
-    control_hub.connect (depths, "Depths to Cave_Complex")
-    control_hub.connect (sandrock_sector, "Depths to Cave_Complex")
+    control_hub.connect (depths, "Control Hub to Depths")
+    control_hub.connect (sandrock_sector, "Control Hub to Sandrock Sector")
 
     #A.I. Mainframe
-    ai_mainframe.connect (cave_complex, "Depths to Cave_Complex")
-    ai_mainframe.connect (volcanic_sector, "Depths to Cave_Complex")
-    ai_mainframe.connect (jungle_sector, "Depths to Cave_Complex")
-    ai_mainframe.connect (temple, "Depths to Cave_Complex")
+    ai_mainframe.connect (cave_complex, "AI Mainframe to Cave_Complex")
+    ai_mainframe.connect (volcanic_sector, "AI Mainframe to Volcanic Sector")
+    ai_mainframe.connect (jungle_sector, "AI Mainframe to Jungle Sector")
+    ai_mainframe.connect (temple, "AI Mainframe to Temple")
 
    #TO-DO: Conditions for connections
     #overworld.connect(top_left_room, "Overworld to Top Left Room", lambda state: state.has("Key", world.player))
