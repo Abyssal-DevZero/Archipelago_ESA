@@ -30,27 +30,27 @@ LOCATION_NAME_TO_ID = {
     "Dash Booster X Spot": 14,
     "Bike Spot": 15,
   
-    "Health Pack Beetle": 21,
-    "Health Pack SandTop": 22,
-    "Health Pack SandBottom": 23,
-    "Health Pack FireLow": 24,
-    "Health Pack FireHigh": 25,
-    "Health Pack Temple": 26,
-    "Health Pack Ship": 27,
-    "Health Pack Water": 28,
+    "Health Pack Beetle Spot": 21,
+    "Health Pack SandTop Spot": 22,
+    "Health Pack SandBottom Spot": 23,
+    "Health Pack FireLow Spot": 24,
+    "Health Pack FireHigh Spot": 25,
+    "Health Pack Temple Spot": 26,
+    "Health Pack Ship Spot": 27,
+    "Health Pack Water Spot": 28,
 
-    "Diskette Water": 31,
-    "Diskette Depthsmaze": 32,
-    "Diskette Caves": 33,
-    "Diskette Jungle": 34,
-    "Diskette TempleLeft": 35,
-    "Diskette TempleTall": 36,
-    "Diskette FireLava": 37,
-    "Diskette FireTop": 38,
-    "Diskette Security": 39,
-    "Diskette SandBot": 40,
-    "Diskette SandMid": 41,
-    "Diskette Ship": 42,
+    "Diskette Water Spot": 31,
+    "Diskette Depthsmaze Spot": 32,
+    "Diskette Caves Spot": 33,
+    "Diskette Jungle Spot": 34,
+    "Diskette TempleLeft Spot": 35,
+    "Diskette TempleTall Spot": 36,
+    "Diskette FireLava Spot": 37,
+    "Diskette FireTop Spot": 38,
+    "Diskette Security Spot": 39,
+    "Diskette SandBot Spot": 40,
+    "Diskette SandMid Spot": 41,
+    "Diskette Ship Spot": 42,
 }
 
 def get_location_names_with_ids(location_names: list[str]) -> dict[str, int | None]:
@@ -92,27 +92,27 @@ def create_regular_locations(world: ESAWorld) -> None:
     underwater_sector_locations = get_locations_names_with_ids(
       ["Plasma Shield Spot", "Charge Shot Spot", "Propeller Spot", "Diskette Water", "Health Pack Water"]
     )
-    underwater_sector.add_locations(depths_locations, ESALocation)
+    underwater_sector.add_locations(underwater_sector_locations, ESALocation)
 
     sandrock_sector_locations = get_locations_names_with_ids(
       ["Health Pack SandTop", "Health Pack SandBottom", "Diskette SandBot", "Diskette SandMid"]
     )
-    sandrock_sector.add_locations(depths_locations, ESALocation)
+    sandrock_sector.add_locations(sandrock_sector_locations, ESALocation)
 
     jungle_sector_locations = get_locations_names_with_ids(
       ["Triple Shot Spot", "Dash Booster H Spot", "Diskette Jungle"]
     )
-    jungle_sector.add_locations(depths_locations, ESALocation)
+    jungle_sector.add_locations(jungle_sector_locations, ESALocation)
 
     temple_locations = get_locations_names_with_ids(
       ["Diskette TempleLeft", "Diskette TempleTall", "Health Pack Temple"]
     )
-    temple.add_locations(depths_locations, ESALocation)
+    temple.add_locations(temple_locations, ESALocation)
 
     derelict_ship_locations = get_locations_names_with_ids(
       ["Diskette Ship", "Bike Spot", "Gold Keycard Spot", "Health Pack Ship"]
     )
-    derelict_ship.add_locations(depths_locations, ESALocation)
+    derelict_ship.add_locations(derelict_ship_locations, ESALocation)
 
 def create_events(world: APQuestWorld) -> None:
     # Sometimes, the player may perform in-game actions that allow them to progress which are not related to Items.
