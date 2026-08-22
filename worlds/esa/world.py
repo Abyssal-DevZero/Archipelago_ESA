@@ -21,13 +21,16 @@ class ESAWorld(World):
     item_name_to_id = items.ITEM_NAME_TO_ID
 
     origin_region_name = "LandingSpot"
-
+    item_name_groups = items.ITEM_NAME_GROUPS
+    
     def create_regions(self) -> None:
         regions.create_and_connect_regions(self)
         locations.create_all_locations(self)
 
     def set_rules(self) -> None:
         rules.set_all_rules(self)
+        self.multiworld.completion_condition[self.player] = \
+            lambda state: rules.has_beaten_goal(state, self.player, self.options)
 
     def create_items(self) -> None:
         items.create_all_items(self)
@@ -37,12 +40,13 @@ class ESAWorld(World):
 
     def get_filler_item_name(self) -> str:
         return items.get_random_filler_item_name(self)
-
-    # There may be data that the game client will need to modify the behavior of the game.
-    # This is what slot_data exists for. Upon every client connection, the slot's slot_data is sent to the client.
-    # slot_data is just a dictionary using basic types, that will be converted to json when sent to the client.
+        
     def fill_slot_data(self) -> Mapping[str, Any]:
-        # If you need access to the player's chosen options on the client side, there is a helper for that.
-        return self.options.as_dict(
-            "hard_mode", "hammer", "extra_starting_chest", "confetti_explosiveness", "player_sprite"
+        data = self.options.as_dict(
+            "randomize_diskettes",
+            "damage_boost_logic",
+            "start_with_jump_booster",
+            "goal",
         )
+        data["seed_name"] = self.multiworld.seed_name
+        return data
