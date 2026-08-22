@@ -20,7 +20,7 @@ class ESAWorld(World):
     location_name_to_id = locations.LOCATION_NAME_TO_ID
     item_name_to_id = items.ITEM_NAME_TO_ID
 
-    origin_region_name = "LandingSpot"
+    origin_region_name = "cave_complex"
     item_name_groups = items.ITEM_NAME_GROUPS
     
     def create_regions(self) -> None:
