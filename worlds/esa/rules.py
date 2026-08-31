@@ -45,7 +45,185 @@ TRAVERSAL_ENTRANCES = [
     "AI Mainframe to Jungle Sector",
     "AI Mainframe to Temple",
 ]
+#Location Rules for all Item spots in the game (Not including event spots yet)
+LOCATION_RULES = {}
  
+LOCATION_RULES["Hookshot Spot"] = (
+        Has("Jump Booster")
+        | Has("Dash Booster V")
+    )
+LOCATION_RULES["Teleport Access Spot"] = (
+        Has("Jump Booster")
+        | Has("Dash Booster V")
+    )
+LOCATION_RULES["Propeller Spot"] = (
+        Has("Dash Booster V")
+        | HasAll("Gold Keycard", "Jump Booster")
+        | HasAll("Hookshot", "Jump Booster")
+    )
+LOCATION_RULES["Charge Shot Spot"] = (
+        Has("Dash Booster V")
+        | HasAll("Gold Keycard", "Jump Booster")
+        | HasAll("Hookshot", "Jump Booster")
+    )
+LOCATION_RULES["Dash Booster H Spot"] = (
+        Has("Dash Booster V")
+        | HasAll("Hookshot", "Jump Booster")
+        | HasAll("Charge Shot", "Gold Keycard", "Dash Booster H", "Jump Booster")
+    )
+LOCATION_RULES["Heat-Resistant suit Spot"] = (
+        HasAll("Hookshot", "Dash Booster V")
+        | HasAll("Charge Shot", "Heat-Resistant Suit", "Jump Booster")
+        | HasAll("Charge Shot", "Heat-Resistant Suit", "Dash Booster V")
+        | HasAll("Charge Shot", "Triple Shot", "Dash Booster V")
+        | HasAll("Gold Keycard", "Dash Booster H", "Jump Booster")
+        | HasAll("Gold Keycard", "Dash Booster H", "Dash Booster V")
+        | HasAll("Dash Booster H", "Hookshot", "Jump Booster")
+        | HasAll("Dash Booster H", "Jump Booster", "Dash Booster V")
+        | HasAll("Dash Booster H", "Triple Shot", "Dash Booster V")
+        | HasAll("Jump Booster", "Triple Shot", "Dash Booster V")
+    )
+LOCATION_RULES["Gold Keycard Spot"] = (
+        HasAll("Hookshot", "Dash Booster V")
+        | HasAll("Charge Shot", "Heat-Resistant Suit", "Jump Booster")
+        | HasAll("Charge Shot", "Heat-Resistant Suit", "Dash Booster V")
+        | HasAll("Charge Shot", "Triple Shot", "Dash Booster V")
+        | HasAll("Gold Keycard", "Dash Booster H", "Jump Booster")
+        | HasAll("Gold Keycard", "Dash Booster H", "Dash Booster V")
+        | HasAll("Dash Booster H", "Hookshot", "Jump Booster")
+        | HasAll("Dash Booster H", "Jump Booster", "Dash Booster V")
+        | HasAll("Dash Booster H", "Triple Shot", "Dash Booster V")
+        | HasAll("Jump Booster", "Triple Shot", "Dash Booster V")
+    )
+LOCATION_RULES["Dash Booster V Spot"] = (
+        Has("Gold Keycard")
+        | Has("Dash Booster V")
+    )
+LOCATION_RULES["Triple Shot Spot"] = (
+        Has("Jump Booster")
+        | Has("Dash Booster V")
+    )
+LOCATION_RULES["Plasma Shield Spot"] = (
+        Has("Dash Booster V")
+        | HasAll("Gold Keycard", "Jump Booster")
+        | HasAll("Hookshot", "Jump Booster")
+    )
+LOCATION_RULES["Supercharge Module Spot"] = (
+        Has("Jump Booster")
+        | Has("Dash Booster V")
+        | HasAll("Charge Shot", "Dash Booster H")
+        | HasAll("Charge Shot", "Hookshot")
+    )
+LOCATION_RULES["Dash Booster X Spot"] = (
+        HasAll("Dash Booster H", "Dash Booster V", "Dash Booster X")
+        | HasAll("Gold Keycard", "Hookshot", "Triple Shot", "Dash Booster V")
+        | HasAll("Hookshot", "Jump Booster", "Triple Shot", "Dash Booster V")
+        | HasAll("The Bike", "Gold Keycard", "Jump Booster", "Triple Shot", "Dash Booster V")
+        | HasAll("Gold Keycard", "Dash Booster H", "Jump Booster", "Triple Shot", "Dash Booster V")
+    )
+LOCATION_RULES["Bike Spot"] = (
+        HasAll("Hookshot", "Dash Booster V")
+        | HasAll("Charge Shot", "Heat-Resistant Suit", "Jump Booster")
+        | HasAll("Charge Shot", "Heat-Resistant Suit", "Dash Booster V")
+        | HasAll("Charge Shot", "Triple Shot", "Dash Booster V")
+        | HasAll("Dash Booster H", "Hookshot", "Jump Booster")
+        | HasAll("Charge Shot", "Gold Keycard", "Dash Booster H", "Jump Booster")
+        | HasAll("Charge Shot", "Gold Keycard", "Dash Booster H", "Dash Booster V")
+        | HasAll("Charge Shot", "Dash Booster H", "Jump Booster", "Dash Booster V")
+    )
+LOCATION_RULES["Health Pack SandTop Spot"] = (
+        Has("Dash Booster V")
+        | HasAll("Hookshot", "Jump Booster")
+    )
+LOCATION_RULES["Health Pack FireLow Spot"] = (
+        Has("Jump Booster")
+        | Has("Dash Booster V")
+    )
+LOCATION_RULES["Health Pack Temple Spot"] = (
+        HasAll("Charge Shot", "Jump Booster")
+        | HasAll("Charge Shot", "Dash Booster V")
+        | HasAll("Hookshot", "Jump Booster")
+    )
+LOCATION_RULES["Health Pack FireHigh Spot"] = (
+        Has("Jump Booster")
+        | Has("Dash Booster V")
+        | HasAll("Charge Shot", "Dash Booster H")
+        | HasAll("Charge Shot", "Hookshot")
+    )
+LOCATION_RULES["Health Pack SandBottom Spot"] = (
+        Has("Dash Booster V")
+        | HasAll("Gold Keycard", "Jump Booster")
+        | HasAll("Hookshot", "Jump Booster")
+    )
+LOCATION_RULES["Health Pack Ship Spot"] = (
+        Has("Dash Booster H")
+        | HasAll("Charge Shot", "Dash Booster V")
+        | HasAll("Hookshot", "Dash Booster V")
+        | HasAll("Jump Booster", "Dash Booster V")
+        | HasAll("Charge Shot", "Heat-Resistant Suit", "Hookshot", "Jump Booster")
+    )
+LOCATION_RULES["Health Pack Water Spot"] = (
+        Has("Dash Booster V")
+        | HasAll("Gold Keycard", "Jump Booster")
+        | HasAll("Hookshot", "Jump Booster")
+    )
+LOCATION_RULES["Diskette Water Spot"] = (
+        Has("Dash Booster V")
+        | HasAll("Gold Keycard", "Jump Booster")
+        | HasAll("Hookshot", "Jump Booster")
+    )
+LOCATION_RULES["Diskette Depthsmaze Spot"] = (
+        Has("Charge Shot")
+        | Has("Jump Booster")
+        | Has("Dash Booster V")
+    )
+LOCATION_RULES["Diskette Jungle Spot"] = (
+        Has("Jump Booster")
+        | Has("Dash Booster V")
+    )
+LOCATION_RULES["Diskette TempleLeft Spot"] = (
+        Has("Dash Booster V")
+        | HasAll("Hookshot", "Jump Booster")
+        | HasAll("Gold Keycard", "Jump Booster", "Propeller")
+        | HasAll("Charge Shot", "Dash Booster H", "Heat-Resistant Suit", "Jump Booster", "Propeller")
+    )
+LOCATION_RULES["Diskette FireLava Spot"] = (
+        Has("Jump Booster")
+        | Has("Dash Booster V")
+        | HasAll("Charge Shot", "Dash Booster H")
+        | HasAll("Charge Shot", "Hookshot")
+    )
+LOCATION_RULES["Diskette TempleTall Spot"] = (
+        Has("Dash Booster V")
+        | HasAll("Gold Keycard", "Jump Booster")
+        | HasAll("Hookshot", "Jump Booster")
+        | HasAll("Charge Shot", "Dash Booster H", "Heat-Resistant Suit", "Jump Booster")
+    )
+LOCATION_RULES["Diskette Security Spot"] = Has("Dash Booster V")
+LOCATION_RULES["Diskette SandMid Spot"] = (
+        Has("Dash Booster V")
+        | HasAll("Gold Keycard", "Jump Booster")
+        | HasAll("Hookshot", "Jump Booster")
+    )
+LOCATION_RULES["Diskette SandBot Spot"] = (
+        Has("Dash Booster V")
+        | HasAll("Charge Shot", "Hookshot")
+        | HasAll("Hookshot", "Jump Booster")
+    )
+LOCATION_RULES["Diskette FireTop Spot"] = (
+        Has("Jump Booster")
+        | Has("Dash Booster V")
+    )
+LOCATION_RULES["Diskette Ship Spot"] = (
+        HasAll("Hookshot", "Dash Booster V")
+        | HasAll("Gold Keycard", "Dash Booster H", "Jump Booster")
+        | HasAll("Gold Keycard", "Dash Booster H", "Dash Booster V")
+        | HasAll("Dash Booster H", "Hookshot", "Jump Booster")
+        | HasAll("Charge Shot", "Heat-Resistant Suit", "Hookshot", "Jump Booster")
+        | HasAll("The Bike", "Gold Keycard", "Jump Booster", "Triple Shot", "Dash Booster V")
+        | HasAll("The Bike", "Charge Shot", "Gold Keycard", "Heat-Resistant Suit", "Jump Booster", "Dash Booster V")
+    )
+
  
 def set_all_rules(world: ESAWorld) -> None:
     set_all_entrance_rules(world)
@@ -61,11 +239,8 @@ def set_all_entrance_rules(world: ESAWorld) -> None:
  
  
 def set_all_location_rules(world: ESAWorld) -> None:
-    world.set_rule(world.get_location("Bike Spot"), Has("Gold Keycard"))
-    world.set_rule(
-        world.get_location("Dash Booster X Spot"),
-        HasAll("Dash Booster H", "Dash Booster V"),
-    )
+    for location_name, rule in LOCATION_RULES.items():
+        world.set_rule(world.get_location(location_name), rule)
  
  
 def set_completion_condition(world: ESAWorld) -> None:
