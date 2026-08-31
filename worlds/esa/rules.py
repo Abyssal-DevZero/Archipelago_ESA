@@ -67,7 +67,15 @@ def set_all_location_rules(world: ESAWorld) -> None:
  
  
 def set_completion_condition(world: ESAWorld) -> None:
-    # Placeholder for now, not the final victory condition
-    world.set_completion_rule(
-        HasAll("Jump Booster", "Hookshot", "Charge Shot", "Heat-Resistant Suit", "Gold Keycard")
+    world.set_rule(
+        world.get_location("A.I. Mainframe Boss Defeated")
     )
+
+    if world.options.postgame:
+        world.set_rule(
+            world.get_location("Mwyah Defeated"),
+            Has("A.I. Mainframe Boss Defeated"),
+        )
+        world.set_completion_rule(Has("Mwyah Defeated"))
+    else:
+        world.set_completion_rule(Has("A.I. Mainframe Boss Defeated"))
