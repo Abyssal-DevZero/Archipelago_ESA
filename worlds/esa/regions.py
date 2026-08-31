@@ -30,11 +30,10 @@ def create_all_regions(world: ESAWorld) -> None:
 
     regions = [cave_complex, depths, volcanic_sector, underwater_sector, sandrock_sector, jungle_sector, temple, derelict_ship, control_hub, ai_mainframe]
 
-    # Keeping this for later in the file, when the option for post-game content is viable
-    #if world.options.postgame:
-          #forlorn_planet = Region("The Forlorn Planet", world.player, world.multiworld)
-          #research_outpost = Region("The Research Outpost", world.player, world.multiworld)
-      #  regions.append(forlorn_planet, research_outpost)
+    # For now only supports Mywah aka Forlorn Planet
+    if world.options.postgame:
+        forlorn_planet = Region("The Forlorn Planet", world.player, world.multiworld)
+        regions.append(forlorn_planet)
 
     world.multiworld.regions += regions
 
