@@ -55,7 +55,9 @@ def set_all_rules(world: ESAWorld) -> None:
  
 def set_all_entrance_rules(world: ESAWorld) -> None:
     for entrance_name in TRAVERSAL_ENTRANCES:
-        world.set_rule(world.get_entrance(entrance_name), CAN_TRAVERSE)
+        world.set_rule(world.get_entrance(entrance_name), CAN_TRAVERSE),
+       #Set Derelict Ship to require the golden Keycard to avoid softlocks
+        world.set_rule(world.get_entrance("Cave Complex to Derelict Ship"),CAN_TRAVERSE & Has("Gold Keycard"))
  
  
 def set_all_location_rules(world: ESAWorld) -> None:
