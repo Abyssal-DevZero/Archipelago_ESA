@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from BaseClasses import ItemClassification, Location
 
 from . import items
-
+from .options import Goal
 if TYPE_CHECKING:
     from .world import ESAWorld
 
