@@ -6,6 +6,8 @@ from rule_builder.rules import Has, HasAll
  
 if TYPE_CHECKING:
     from .world import ESAWorld
+
+from .options import Goal
  
 # player usually can't leave Cave_Complex without any of those Items, so this way it should force the randomizer to spawn either on in the cave_complex
 CAN_TRAVERSE = Has("Jump Booster") | Has("Dash Booster V")
@@ -233,9 +235,13 @@ def set_all_rules(world: ESAWorld) -> None:
  
 def set_all_entrance_rules(world: ESAWorld) -> None:
     for entrance_name in TRAVERSAL_ENTRANCES:
-        world.set_rule(world.get_entrance(entrance_name), CAN_TRAVERSE),
-       #Set Derelict Ship to require the golden Keycard to avoid softlocks
-        world.set_rule(world.get_entrance("Cave Complex to Derelict Ship"),CAN_TRAVERSE & Has("Gold Keycard"))
+        world.set_rule(world.get_entrance(entrance_name), CAN_TRAVERSE)
+
+    # The Derelict Ship needs the Gold Keycard to avoid softlocks
+    world.set_rule(
+        world.get_entrance("Cave Complex to Derelict Ship"),
+        CAN_TRAVERSE & Has("Gold Keycard"),
+    )
  
  
 def set_all_location_rules(world: ESAWorld) -> None:
@@ -248,7 +254,7 @@ def set_completion_condition(world: ESAWorld) -> None:
         world.get_location("A.I. Mainframe Boss Defeated")
     )
 
-    if world.options.postgame:
+    if world.options.goal == Goal.option_postgame:
         world.set_rule(
             world.get_location("Mwyah Defeated"),
             Has("A.I. Mainframe Boss Defeated"),
