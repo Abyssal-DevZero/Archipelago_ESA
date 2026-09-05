@@ -1,2 +1,2 @@
 from . import components as components
-from .world import ESAworld as ESAworld
+from .world import ESAWorld as ESAWorld
