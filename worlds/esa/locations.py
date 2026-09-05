@@ -52,6 +52,42 @@ LOCATION_NAME_TO_ID = {
     "Diskette SandMid Spot": 41,
     "Diskette Ship Spot": 42,
 }
+#Doing Region Locations as dictionary instead of old method
+REGION_LOCATIONS: dict[str, list[str]] = {
+    "Cave_Complex": [
+        "Jump Booster Spot", "Dash Booster V Spot", "Rough Map Spot",
+        "Health Pack Beetle Spot", "Diskette Caves Spot",
+    ],
+    "The Depths": [
+        "Diskette Depthsmaze Spot",
+    ],
+    "The Volcanic Sector": [
+        "Hookshot Spot", "Heat-Resistant suit Spot", "Supercharge Module Spot",
+        "Dash Booster X Spot", "Health Pack FireLow Spot", "Health Pack FireHigh Spot",
+        "Diskette FireLava Spot", "Diskette FireTop Spot",
+    ],
+    "The Underwater Sector": [
+        "Charge Shot Spot", "Propeller Spot", "Plasma Shield Spot",
+        "Health Pack Water Spot", "Diskette Water Spot",
+    ],
+    "The Sandrock Sector": [
+        "Health Pack SandTop Spot", "Health Pack SandBottom Spot",
+        "Diskette SandMid Spot", "Diskette SandBot Spot",
+    ],
+    "The Jungle Sector": [
+        "Triple Shot Spot", "Dash Booster H Spot", "Diskette Jungle Spot",
+    ],
+    "The Temple": [
+        "Health Pack Temple Spot", "Diskette TempleLeft Spot", "Diskette TempleTall Spot",
+    ],
+    "The Derelict Ship": [
+        "Gold Keycard Spot", "Bike Spot", "Health Pack Ship Spot", "Diskette Ship Spot",
+    ],
+    "The Control Hub": [
+        "Teleport Access Spot", "Diskette Security Spot",
+    ],
+    "The A.I. Mainframe": [],
+}
 
 def get_location_names_with_ids(location_names: list[str]) -> dict[str, int | None]:
     return {location_name: LOCATION_NAME_TO_ID[location_name] for location_name in location_names}
@@ -63,57 +99,11 @@ def create_all_locations(world: ESAWorld) -> None:
 
 
 def create_regular_locations(world: ESAWorld) -> None:
-    cave_complex = world.get_region("Cave_Complex")
-    depths = world.get_region("The Depths")
-    volcanic_sector = world.get_region("The Volcanic Sector")
-    underwater_sector = world.get_region("The Underwater Sector")
-    sandrock_sector = world.get_region("The Sandrock Sector")
-    jungle_sector = world.get_region("The Jungle Sector")
-    temple= world.get_region("The Temple")
-    derelict_ship = world.get_region("The Derelict Ship")
-    control_hub = world.get_region("The Control Hub")
-    ai_mainframe = world.get_region("The A.I. Mainframe")
-
-    cave_complex_locations = get_locations_names_with_ids(
-      ["Health Pack Beetle", "Jump Booster Spot","Dash Booster V Spot", "Diskette Caves", "Rough Map Spot"]
-    )
-    cave_complex.add_locations(cave_complex_locations, ESALocation)
-  
-    depths_locations = get_locations_names_with_ids(
-      ["Diskette Depthsmaze"]
-    )
-    depths.add_locations(depths_locations, ESALocation)
-
-    volcanic_sector_locations = get_locations_names_with_ids(
-      ["Heat-Resistant suit Spot", "Diskette FireTop", "Hookshot", "Health Pack FireLow", "Health Pack FireHigh", "Dash Booster X Spot", "Diskette FireLava", "Supercharge Module Spot"]
-    )
-    volcanic_sector.add_locations (volcanic_sector_locations, ESALocation)
-
-    underwater_sector_locations = get_locations_names_with_ids(
-      ["Plasma Shield Spot", "Charge Shot Spot", "Propeller Spot", "Diskette Water", "Health Pack Water"]
-    )
-    underwater_sector.add_locations(underwater_sector_locations, ESALocation)
-
-    sandrock_sector_locations = get_locations_names_with_ids(
-      ["Health Pack SandTop", "Health Pack SandBottom", "Diskette SandBot", "Diskette SandMid"]
-    )
-    sandrock_sector.add_locations(sandrock_sector_locations, ESALocation)
-
-    jungle_sector_locations = get_locations_names_with_ids(
-      ["Triple Shot Spot", "Dash Booster H Spot", "Diskette Jungle"]
-    )
-    jungle_sector.add_locations(jungle_sector_locations, ESALocation)
-
-    temple_locations = get_locations_names_with_ids(
-      ["Diskette TempleLeft", "Diskette TempleTall", "Health Pack Temple"]
-    )
-    temple.add_locations(temple_locations, ESALocation)
-
-    derelict_ship_locations = get_locations_names_with_ids(
-      ["Diskette Ship", "Bike Spot", "Gold Keycard Spot", "Health Pack Ship"]
-    )
-    derelict_ship.add_locations(derelict_ship_locations, ESALocation)
-
+    for region_name, location_names in REGION_LOCATIONS.items():
+        if not location_names:
+            continue
+        region = world.get_region(region_name)
+        region.add_locations(get_location_names_with_ids(location_names), ESALocation)
 
 #Event for Endbosses AI Mainframe and Mywah when Postgame is included
 def create_events(world: ESAWorld) -> None:
@@ -123,7 +113,7 @@ def create_events(world: ESAWorld) -> None:
         location_type=ESALocation, item_type=items.ESAItem,
     )
 
-    if world.options.postgame:
+    if world.options.goal == Goal.option_postgame:
         forlorn_planet = world.get_region("The Forlorn Planet")
         forlorn_planet.add_event(
             "Mwyah Defeated", "Mwyah Defeated",
