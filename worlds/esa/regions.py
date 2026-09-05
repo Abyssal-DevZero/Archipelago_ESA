@@ -33,9 +33,8 @@ def create_all_regions(world: ESAWorld) -> None:
     regions = [cave_complex, depths, volcanic_sector, underwater_sector, sandrock_sector, jungle_sector, temple, derelict_ship, control_hub, ai_mainframe]
 
     # For now only supports Mywah aka Forlorn Planet
-    if world.options.goal == Goal.option_postgame:
-        regions.append(Region("The Forlorn Planet", world.player, world.multiworld))
-
+if world.options.goal == Goal.option_postgame:
+    regions.append(Region("The Forlorn Planet", world.player, world.multiworld))
     world.multiworld.regions += regions
 
 
@@ -104,6 +103,6 @@ def connect_regions(world: ESAWorld) -> None:
     ai_mainframe.connect(jungle_sector, "AI Mainframe to Jungle Sector")
     ai_mainframe.connect(temple, "AI Mainframe to Temple")
 
-  if world.options.goal == Goal.option_postgame:
-        forlorn_planet = world.get_region("The Forlorn Planet")
-        ai_mainframe.connect(forlorn_planet, "A.I. Mainframe to Forlorn Planet")
+if world.options.goal == Goal.option_postgame:
+    forlorn_planet = world.get_region("The Forlorn Planet")
+    ai_mainframe.connect(forlorn_planet, "A.I. Mainframe to Forlorn Planet")
