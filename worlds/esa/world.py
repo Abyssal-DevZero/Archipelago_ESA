@@ -20,7 +20,7 @@ class ESAWorld(World):
     location_name_to_id = locations.LOCATION_NAME_TO_ID
     item_name_to_id = items.ITEM_NAME_TO_ID
 
-    origin_region_name = "cave_complex"
+    origin_region_name = "Cave_Complex"
     item_name_groups = items.ITEM_NAME_GROUPS
     
     def create_regions(self) -> None:
@@ -29,8 +29,6 @@ class ESAWorld(World):
 
     def set_rules(self) -> None:
         rules.set_all_rules(self)
-        self.multiworld.completion_condition[self.player] = \
-            lambda state: rules.has_beaten_goal(state, self.player, self.options)
 
     def create_items(self) -> None:
         items.create_all_items(self)
