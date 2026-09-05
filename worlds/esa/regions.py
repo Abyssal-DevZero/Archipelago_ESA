@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 
 from BaseClasses import Entrance, Region
 
+from .options import Goal
+
 if TYPE_CHECKING:
     from .world import ESAWorld
 
@@ -31,9 +33,8 @@ def create_all_regions(world: ESAWorld) -> None:
     regions = [cave_complex, depths, volcanic_sector, underwater_sector, sandrock_sector, jungle_sector, temple, derelict_ship, control_hub, ai_mainframe]
 
     # For now only supports Mywah aka Forlorn Planet
-    if world.options.postgame:
-        forlorn_planet = Region("The Forlorn Planet", world.player, world.multiworld)
-        regions.append(forlorn_planet)
+    if world.options.goal == Goal.option_postgame:
+        regions.append(Region("The Forlorn Planet", world.player, world.multiworld))
 
     world.multiworld.regions += regions
 
@@ -45,7 +46,7 @@ def connect_regions(world: ESAWorld) -> None:
     underwater_sector = world.get_region("The Underwater Sector")
     sandrock_sector = world.get_region("The Sandrock Sector")
     jungle_sector = world.get_region("The Jungle Sector")
-    temple= world.get_region("The Temple")
+    temple = world.get_region("The Temple")
     derelict_ship = world.get_region("The Derelict Ship")
     control_hub = world.get_region("The Control Hub")
     ai_mainframe = world.get_region("The A.I. Mainframe")
@@ -60,53 +61,49 @@ def connect_regions(world: ESAWorld) -> None:
     cave_complex.connect(derelict_ship, "Cave Complex to Derelict Ship")
 
     #Depths
-    depths.connect (cave_complex, "Depths to Cave_Complex")
-    depths.connect (volcanic_sector, "The Depths to Volcanic Sector")
-    depths.connect (control_hub, "Depths to Control Hub")
-    depths.connect (sandrock_sector, "Depths to Sandrock Sector")
+    depths.connect(cave_complex, "Depths to Cave_Complex")
+    depths.connect(volcanic_sector, "The Depths to Volcanic Sector")
+    depths.connect(control_hub, "Depths to Control Hub")
+    depths.connect(sandrock_sector, "Depths to Sandrock Sector")
 
     #Volcanic Sector
-    volcanic_sector.connect (depths, "Volcanic Sector to Depths")
-    volcanic_sector.connect (ai_mainframe, "Volcanic Sector to AI Mainframe")
-    volcanic_sector.connect (temple, "Volcanic Sector to Temple")
+    volcanic_sector.connect(depths, "Volcanic Sector to Depths")
+    volcanic_sector.connect(ai_mainframe, "Volcanic Sector to AI Mainframe")
+    volcanic_sector.connect(temple, "Volcanic Sector to Temple")
 
     #Underwater Sector
-    underwater_sector.connect (cave_complex, "Underwater Sector to Cave_Complex")
-    underwater_sector.connect (sandrock_sector, "Underwater Sector to Sandrock Sector")
+    underwater_sector.connect(cave_complex, "Underwater Sector to Cave_Complex")
+    underwater_sector.connect(sandrock_sector, "Underwater Sector to Sandrock Sector")
 
     #Sandrock Sector
-    sandrock_sector.connect (cave_complex, "Sandrock Sector to Cave_Complex")
-    sandrock_sector.connect (depths, "Sandrock Sector to Depths")
-    sandrock_sector.connect (control_hub, "Sandrock Sector to Control Hub")
-    sandrock_sector.connect (underwater_sector, "Sandrock Sector to Underwater Sector")
+    sandrock_sector.connect(cave_complex, "Sandrock Sector to Cave_Complex")
+    sandrock_sector.connect(depths, "Sandrock Sector to Depths")
+    sandrock_sector.connect(control_hub, "Sandrock Sector to Control Hub")
+    sandrock_sector.connect(underwater_sector, "Sandrock Sector to Underwater Sector")
 
     #Jungle Sector
-    jungle_sector.connect (cave_complex, "Jungle Sector to Cave_Complex")
-    jungle_sector.connect (ai_mainframe, "Jungle Sector to AI Mainframe")
-    jungle_sector.connect (temple, "Jungle Sector to Temple")
+    jungle_sector.connect(cave_complex, "Jungle Sector to Cave_Complex")
+    jungle_sector.connect(ai_mainframe, "Jungle Sector to AI Mainframe")
+    jungle_sector.connect(temple, "Jungle Sector to Temple")
 
     #Temple
-    temple.connect (ai_mainframe, "Temple to AI Mainframe")
-    temple.connect (volcanic_sector, "Temple to Volcanic Sector")
-    temple.connect (jungle_sector, "Temple to Jungle Sector")
+    temple.connect(ai_mainframe, "Temple to AI Mainframe")
+    temple.connect(volcanic_sector, "Temple to Volcanic Sector")
+    temple.connect(jungle_sector, "Temple to Jungle Sector")
 
     #Derelict Ship
-    derelict_ship.connect (cave_complex, "Derelict Ship to Cave_Complex")
+    derelict_ship.connect(cave_complex, "Derelict Ship to Cave_Complex")
 
     #Control Hub
-    control_hub.connect (depths, "Control Hub to Depths")
-    control_hub.connect (sandrock_sector, "Control Hub to Sandrock Sector")
+    control_hub.connect(depths, "Control Hub to Depths")
+    control_hub.connect(sandrock_sector, "Control Hub to Sandrock Sector")
 
     #A.I. Mainframe
-    ai_mainframe.connect (cave_complex, "AI Mainframe to Cave_Complex")
-    ai_mainframe.connect (volcanic_sector, "AI Mainframe to Volcanic Sector")
-    ai_mainframe.connect (jungle_sector, "AI Mainframe to Jungle Sector")
-    ai_mainframe.connect (temple, "AI Mainframe to Temple")
+    ai_mainframe.connect(cave_complex, "AI Mainframe to Cave_Complex")
+    ai_mainframe.connect(volcanic_sector, "AI Mainframe to Volcanic Sector")
+    ai_mainframe.connect(jungle_sector, "AI Mainframe to Jungle Sector")
+    ai_mainframe.connect(temple, "AI Mainframe to Temple")
 
-   #TO-DO: Conditions for connections
-    #overworld.connect(top_left_room, "Overworld to Top Left Room", lambda state: state.has("Key", world.player))
-
-    # TO-DO options ffor connections
-    #if world.options.hammer:
-        #top_middle_room = world.get_region("Top Middle Room")
-        #overworld.connect(top_middle_room, "Overworld to Top Middle Room")
+  if world.options.goal == Goal.option_postgame:
+        forlorn_planet = world.get_region("The Forlorn Planet")
+        ai_mainframe.connect(forlorn_planet, "A.I. Mainframe to Forlorn Planet")
