@@ -85,9 +85,9 @@ for _name in ABILITIES:
  
 for _name in HEALTH_PACKS:
     DEFAULT_ITEM_CLASSIFICATIONS[_name] = ItemClassification.useful
- 
+ #Making Diskettes not progression items, since they are not necessarely needed for progression, only for convenience Dash Booster X
 for _name in DISKETTES:
-    DEFAULT_ITEM_CLASSIFICATIONS[_name] = ItemClassification.progression
+    DEFAULT_ITEM_CLASSIFICATIONS[_name] = ItemClassification.useful
  
 #No junk in ESA, let's call it Data Fragment, does nothing
 DEFAULT_ITEM_CLASSIFICATIONS["Data Fragment"] = ItemClassification.filler
@@ -117,10 +117,14 @@ def create_event_item(world: ESAWorld, name: str) -> ESAItem:
 def create_all_items(world: ESAWorld) -> None:
     itempool: list[Item] = []
  
-    # 15 abilities + 8 Health Upgrades
+    if world.options.start_with_jump_booster:
+        world.push_precollected(world.create_item("Jump Booster"))
+
+    # 15 abilities + 8 Health Packs
     for name in ABILITIES:
-        itempool.append(world.create_item(name))
- 
+        if name == "Jump Booster" and world.options.start_with_jump_booster:
+            continue
+         
     for name in HEALTH_PACKS:
         itempool.append(world.create_item(name))
  
