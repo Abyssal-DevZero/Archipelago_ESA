@@ -250,10 +250,6 @@ def set_all_location_rules(world: ESAWorld) -> None:
  
  
 def set_completion_condition(world: ESAWorld) -> None:
-    world.set_rule(
-        world.get_location("A.I. Mainframe Boss Defeated")
-    )
-
     if world.options.goal == Goal.option_postgame:
         world.set_rule(
             world.get_location("Mwyah Defeated"),
