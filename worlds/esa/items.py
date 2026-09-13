@@ -64,7 +64,7 @@ def create_event_item(world: ESAWorld, name: str) -> ESAItem:
     return ESAItem(name, ItemClassification.progression, None, world.player)
 
 
- def create_all_items(world: ESAWorld) -> None:
+def create_all_items(world: ESAWorld) -> None:
     itempool: list[Item] = []
 
     if world.options.start_with_jump_booster:
