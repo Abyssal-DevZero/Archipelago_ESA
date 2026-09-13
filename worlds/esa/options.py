@@ -9,8 +9,8 @@ class Goal(Choice):
     """
     What counts as finishing the seed.
     
-    final_boss: defeat the station's final boss and leave.
-    postgame: defeat Mwyah and collect all four Pillars.
+    final_boss: defeat the virus and get the first ending
+    postgame: defeat Mwyah
     """
 
     display_name = "Goal"
