@@ -35,7 +35,7 @@ def create_all_regions(world: ESAWorld) -> None:
     # For now only supports Mywah aka Forlorn Planet
     if world.options.goal == Goal.option_postgame:
         regions.append(Region("The Forlorn Planet", world.player, world.multiworld))
-        world.multiworld.regions += regions
+    world.multiworld.regions += regions
 
 
 def connect_regions(world: ESAWorld) -> None:
