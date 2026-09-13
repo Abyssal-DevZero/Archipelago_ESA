@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from BaseClasses import ItemClassification, Location
-
+from BaseClasses import Location
+from .data import LOCATION_NAME_TO_ID
 from . import items
 from .options import Goal
 if TYPE_CHECKING:
@@ -13,45 +13,6 @@ if TYPE_CHECKING:
 class ESALocation(Location):
     game = "Environmental Station Alpha"
 
-LOCATION_NAME_TO_ID = {
-    "Jump Booster Spot": 1,
-    "Hookshot Spot": 2,
-    "Teleport Access Spot": 3,
-    "Propeller Spot": 4,
-    "Charge Shot Spot": 5,
-    "Dash Booster H Spot": 6,
-    "Heat-Resistant suit Spot": 7,
-    "Gold Keycard Spot": 8,
-    "Dash Booster V Spot": 9,
-    "Rough Map Spot": 10,
-    "Triple Shot Spot": 11,
-    "Plasma Shield Spot": 12,
-    "Supercharge Module Spot": 13,
-    "Dash Booster X Spot": 14,
-    "Bike Spot": 15,
-  
-    "Health Pack Beetle Spot": 21,
-    "Health Pack SandTop Spot": 22,
-    "Health Pack SandBottom Spot": 23,
-    "Health Pack FireLow Spot": 24,
-    "Health Pack FireHigh Spot": 25,
-    "Health Pack Temple Spot": 26,
-    "Health Pack Ship Spot": 27,
-    "Health Pack Water Spot": 28,
-
-    "Diskette Water Spot": 31,
-    "Diskette Depthsmaze Spot": 32,
-    "Diskette Caves Spot": 33,
-    "Diskette Jungle Spot": 34,
-    "Diskette TempleLeft Spot": 35,
-    "Diskette TempleTall Spot": 36,
-    "Diskette FireLava Spot": 37,
-    "Diskette FireTop Spot": 38,
-    "Diskette Security Spot": 39,
-    "Diskette SandBot Spot": 40,
-    "Diskette SandMid Spot": 41,
-    "Diskette Ship Spot": 42,
-}
 #Doing Region Locations as dictionary instead of old method
 REGION_LOCATIONS: dict[str, list[str]] = {
     "Cave_Complex": [
