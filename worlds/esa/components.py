@@ -1,8 +1,8 @@
 from worlds.LauncherComponents import Component, Type, components, launch as launch_component
 
-    def launch_client(*args):
-        from .client.client import launch
-        launch_component(launch, name="ESAClient", args=args)
+def launch_client(*args):
+    from .client.client import launch
+    launch_component(launch, name="ESAClient", args=args)
         
 components.append(Component(
     "ESA Client",
