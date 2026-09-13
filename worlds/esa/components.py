@@ -1,14 +1,14 @@
-"""Launcher registration.
-
-Nothing to register yet — the client does not exist. When it does, this is
-where it goes:
-
-    from worlds.LauncherComponents import Component, Type, components, launch_subprocess
+from worlds.LauncherComponents import Component, Type, components, launch as launch_component
 
     def launch_client(*args):
-        from .client import launch
-        launch_subprocess(launch, name="ESAClient", args=args)
-
-    components.append(Component("ESA Client", func=launch_client,
-                                component_type=Type.CLIENT))
-"""
+        from .client.client import launch
+        launch_component(launch, name="ESAClient", args=args)
+        
+components.append(Component(
+    "ESA Client",
+    func=launch_client,
+    component_type=Type.CLIENT,
+    game_name="Environmental Station Alpha",
+    supports_uri=True,
+    description="Start this client first, before starting the game",
+))
