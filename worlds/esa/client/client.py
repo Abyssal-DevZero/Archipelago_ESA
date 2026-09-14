@@ -345,7 +345,7 @@ async def poll(ctx: ESAContext):
         ctx.last_shadow_generation = att.shadow_generation
         n = push_ledger(att, ledger)
         if n:
-            logger.info("restored %d slot(s) worth of checks into the game", n)
+            logger.debug("restored %d slot(s) worth of checks into the game", n)
 
     found = scan_checks(att)
 
