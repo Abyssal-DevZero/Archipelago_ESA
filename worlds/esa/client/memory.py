@@ -9,6 +9,7 @@ import ctypes
 import struct
 import sys
 import time
+import logging
 from dataclasses import dataclass, field
 
 WINDOWS = sys.platform == "win32"
@@ -905,10 +906,10 @@ def init_shadows(game, base, log):
                 "will retry")
             return False
         if game.read_slot(base, sh, length) != "0" * length:
-            log(f"shadow: slot {sh} ({name}) did not read back — retrying")
+            log.debug(f"shadow: slot {sh} ({name}) did not read back — retrying")
             return False
         done.append(f"{sh}:{name}({length})")
-    log("shadow: initialised " + ", ".join(done))
+    log.debug("shadow: initialised " + ", ".join(done))
     return True
 
 # Patcher / Trampolines
@@ -958,21 +959,21 @@ class Patcher:
                 skipped += 1
                 continue
             if st != "clean":
-                log(f"patch: {e.id} ABORT — byte state is '{st}'. Wrong build, "
+                log.error(f"patch: {e.id} ABORT — byte state is '{st}'. Wrong build, "
                     "or something else already wrote there.")
                 skipped += 1
                 continue
             ok = True
             for label, rva, orig, new in e.sites():
                 if not self.p.write(self.p.base + rva, new):
-                    log(f"patch: {e.id} WRITE FAILED at +{rva:X} ({label})")
+                    log.error(f"patch: {e.id} WRITE FAILED at +{rva:X} ({label})")
                     ok = False
                     break
             if ok and self.entry_state(e) == "patched":
                 applied += 1
             else:
-                log(f"patch: {e.id} verification failed after write")
-        log(f"patch: {applied} in-place row(s) redirected, {skipped} skipped")
+                log.error(f"patch: {e.id} verification failed after write")
+        log.debug(f"patch: {applied} in-place row(s) redirected, {skipped} skipped")
         return applied
 
     def revert(self, log, entries=None):
@@ -983,10 +984,10 @@ class Patcher:
                 continue
             for label, rva, orig, _ in e.sites():
                 if not self.p.write(self.p.base + rva, orig):
-                    log(f"unpatch: WRITE FAILED at +{rva:X} ({e.id}/{label})")
+                    log.error(f"unpatch: WRITE FAILED at +{rva:X} ({e.id}/{label})")
                     return n
             n += 1
-        log(f"unpatch: {n} row(s) restored")
+        log.info(f"unpatch: {n} row(s) restored")
         return n
 
 
@@ -1035,7 +1036,7 @@ class Trampolines:
                             self.p.handle, ctypes.c_void_p(target), size,
                             MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE)
                         if p:
-                            log(f"trampolines: stub page at {p:X} "
+                            log.debug(f"trampolines: stub page at {p:X} "
                                 f"({p - base:+X} from the module)")
                             return p
                 # advance, rounding AWAY from the module so we never revisit
@@ -1045,7 +1046,7 @@ class Trampolines:
                 else:
                     prv = (mbi.BaseAddress - 1) & ~(step - 1)
                     addr = min(prv, addr - step)
-        log(f"trampolines: no free page within rel32 range ({probes} probes)")
+        log.error(f"trampolines: no free page within rel32 range ({probes} probes)")
         return None
 
     def site_state(self, rva, expect):
@@ -1077,7 +1078,7 @@ class Trampolines:
         if st == "installed":
             return True
         if st not in ("clean", "mixed"):
-            log(f"trampolines: ABORT — site bytes are '{st}'. Wrong build, or "
+            log.error(f"trampolines: ABORT — site bytes are '{st}'. Wrong build, or "
                 "something else already patched these addresses.")
             return False
 
@@ -1086,16 +1087,16 @@ class Trampolines:
             want = e.expect_at(rva, kind)
             cur = self.p.read(self.p.base + rva, covered)
             if cur is None:
-                log(f"trampolines: ABORT — cannot read +{rva:X} ({e.id}/{label})")
+                log.error(f"trampolines: ABORT — cannot read +{rva:X} ({e.id}/{label})")
                 return False
             if not want:
-                log(f"trampolines: ABORT — no confirmed bytes recorded for "
+                log.error(f"trampolines: ABORT — no confirmed bytes recorded for "
                     f"+{rva:X} ({e.id}/{label})")
                 return False
             if cur[:len(want)] != want:
                 if cur[0] == 0xE9:
                     continue
-                log(f"trampolines: ABORT — +{rva:X} ({e.id}/{label}) is "
+                log.error(f"trampolines: ABORT — +{rva:X} ({e.id}/{label}) is "
                     f"{cur[:len(want)].hex(' ').upper()}, expected "
                     f"{want.hex(' ').upper()}")
                 return False
@@ -1129,17 +1130,17 @@ class Trampolines:
                                       site_addr + covered)
                 patch = jmp_rel32(site_addr, cursor)
             except ValueError as exc:
-                log(f"trampolines: ABORT — {e.id}/{label}: {exc}")
+                log.error(f"trampolines: ABORT — {e.id}/{label}: {exc}")
                 return False
             patch += NOP * (covered - JMP_LEN)
             if not self.p.write(cursor, stub):
-                log(f"trampolines: stub write failed for {e.id}/{label}")
+                log.error(f"trampolines: stub write failed for {e.id}/{label}")
                 return False
             if self.p.read(cursor, len(stub)) != stub:
-                log(f"trampolines: stub verification failed for {e.id}/{label}")
+                log.error(f"trampolines: stub verification failed for {e.id}/{label}")
                 return False
             if not self.p.write(site_addr, patch):
-                log(f"trampolines: site write failed at +{rva:X}")
+                log.error(f"trampolines: site write failed at +{rva:X}")
                 return False
             self.saved[rva] = original
             self.installed.add(rva)
@@ -1147,12 +1148,12 @@ class Trampolines:
             done += 1
 
         if self.state(entries) != "installed":
-            log("trampolines: verification failed after install")
+            log.error("trampolines: verification failed after install")
             return False
         by_entry = {}
         for e, _, _, _, kind in sites:
             by_entry.setdefault(e.id, set()).add(kind.upper())
-        log(f"trampolines: {done} site(s) installed and verified — "
+        log.debug(f"trampolines: {done} site(s) installed and verified — "
             + ", ".join(f"{k}({'/'.join(sorted(v))})"
                         for k, v in sorted(by_entry.items())))
         return True
@@ -1163,16 +1164,16 @@ class Trampolines:
             original = self.saved.get(rva)
             if original is None:
                 if rva in self.installed:
-                    log(f"trampolines: no saved bytes for +{rva:X} — "
+                    log.warning(f"trampolines: no saved bytes for +{rva:X} — "
                         "restart the game to restore it")
                 continue
             if not self.p.write(self.p.base + rva, original):
-                log(f"trampolines: restore failed at +{rva:X}")
+                log.error(f"trampolines: restore failed at +{rva:X}")
                 return n
             self.installed.discard(rva)
             n += 1
         self.saved.clear()
-        log(f"trampolines: {n} site(s) restored")
+        log.debug(f"trampolines: {n} site(s) restored")
         return n
 
 # Attachment — attach, wait for a frame, patch, initialise shadows
@@ -1216,7 +1217,7 @@ class Attachment:
         self.ready_since = None
         self.last_why = None
         if why:
-            self.log(f"detached: {why}")
+            self.log.info(f"detached: {why}")
 
     def _try_attach(self):
         now = time.monotonic()
@@ -1227,14 +1228,14 @@ class Attachment:
             self.proc = Process(PROCESS_NAME)
         except AttachError as exc:
             if self.last_why != str(exc):
-                self.log(f"attach: {exc}")
+                self.log.debug(f"attach: {exc}")
                 self.last_why = str(exc)
             self.proc = None
             return False
         self.game = Game(self.proc)
         self.patcher = Patcher(self.proc)
         self.tramp = Trampolines(self.proc)
-        self.log(f"attached: pid {self.proc.pid}, module {self.proc.base:X}")
+        self.log.info(f"attached: pid {self.proc.pid}, module {self.proc.base:X}")
         self.last_why = None
         return True
 
@@ -1256,7 +1257,7 @@ class Attachment:
 
         if sbase != self.prev_base:
             if self.prev_base is not None:
-                self.log(f"string table reallocated ({self.prev_base:X} -> "
+                self.log.debug(f"string table reallocated ({self.prev_base:X} -> "
                          f"{sbase:X}) — shadows must be rewritten")
                 self.shadow_ready = False
             self.prev_base = sbase
@@ -1266,7 +1267,7 @@ class Attachment:
         if not ok:
             self.ready_since = None
             if why != self.last_why:
-                self.log(f"waiting: {why}")
+                self.log.debug(f"waiting: {why}")
                 self.last_why = why
             return WAITING
         if self.ready_since is None:
@@ -1283,17 +1284,17 @@ class Attachment:
             expected = sum(1 for e in ENTRIES if e.enabled and e.ready and e.sites())
             applied = self.patcher.apply(self.log)
             if applied == 0 and expected:
-                self.log("patch: NOTHING applied. This is almost certainly the "
+                self.log.error("patch: NOTHING applied. This is almost certainly the "
                          "wrong build — the RVAs are for the C++ port (Oct "
                          "2024), not the original Fusion executable.")
                 self.ready_since = None
                 return WAITING
             if applied < expected:
-                self.log(f"patch: only {applied}/{expected} in-place row(s) "
+                self.log.error(f"patch: only {applied}/{expected} in-place row(s) "
                          "took. Some pedestals will still hand out vanilla "
                          "items.")
             self.patched = True
-            self.log("patch: game is redirected to the shadow slots")
+            self.log.info("patch: game is redirected to the shadow slots")
 
         if not self.shadow_ready:
             if not init_shadows(self.game, sbase, self.log):
