@@ -1235,7 +1235,7 @@ class Attachment:
         self.game = Game(self.proc)
         self.patcher = Patcher(self.proc)
         self.tramp = Trampolines(self.proc)
-        self.log.info(f"attached: pid {self.proc.pid}, module {self.proc.base:X}")
+        self.log.debug(f"attached: pid {self.proc.pid}, module {self.proc.base:X}")
         self.last_why = None
         return True
 
