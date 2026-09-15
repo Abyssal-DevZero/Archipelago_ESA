@@ -902,7 +902,7 @@ def init_shadows(game, base, log):
     for real, sh in sorted(SHADOW_OF.items(), key=lambda kv: kv[1]):
         name, length = SLOTS[sh]
         if not game.write_slot_inline(base, sh, "0" * length):
-            log(f"shadow: write refused for slot {sh} ({name}) — heap mode? "
+            log.error(f"shadow: write refused for slot {sh} ({name}) — heap mode? "
                 "will retry")
             return False
         if game.read_slot(base, sh, length) != "0" * length:
