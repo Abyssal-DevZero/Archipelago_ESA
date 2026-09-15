@@ -231,7 +231,7 @@ class ESAContext(CommonContext):
 
     def __init__(self, server_address, password):
         super().__init__(server_address, password)
-        self.att = mem.Attachment(log=logger.info)
+        self.att = mem.Attachment(log=logger)
         self.ledger = Ledger()
         self.state = DETACHED
         self.write_diskettes = True
