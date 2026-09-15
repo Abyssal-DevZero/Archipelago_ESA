@@ -306,6 +306,7 @@ class ESAContext(CommonContext):
 async def game_watcher(ctx: ESAContext):
     """Attach, patch, poll"""
     warned_offline = False
+    announced_ready = False
     while not ctx.exit_event.is_set():
         await asyncio.sleep(POLL_INTERVAL)
         try:
@@ -317,11 +318,14 @@ async def game_watcher(ctx: ESAContext):
             continue
 
         if ctx.state != READY:
+            announced_ready = False     # re-announce after a re-attach
             continue
 
         if not ctx.server or ctx.slot is None:
+            announced_ready = False
             if not warned_offline:
-                logger.info("Game is patched and waiting. Connect to the multiworld to start syncing")
+                logger.info("game is patched and waiting — connect to the "
+                            "multiworld to start syncing")
                 warned_offline = True
             continue
         warned_offline = False
@@ -329,6 +333,12 @@ async def game_watcher(ctx: ESAContext):
         # a slot with nothing to receive never gets a ReceivedItems packet, so fall through after a short grace period
         if not ctx.items_synced and time.monotonic() - ctx.connected_at < 2.0:
             continue
+
+        if not announced_ready:
+            logger.info("Ready — connected as %s and hooked into the game. "
+                        "Start a NEW game; do not load an existing save.",
+                        ctx.auth or ctx.slot)
+            announced_ready = True
 
         try:
             await poll(ctx)
@@ -368,7 +378,7 @@ async def poll(ctx: ESAContext):
 
     if new:
         names = ", ".join(ID_TO_LOCATION.get(i, str(i)) for i in sorted(new))
-        logger.info("check: %s", names)
+        logger.debug("check: %s", names)
 
     await ctx.check_locations(ledger.keys())
 
@@ -381,7 +391,7 @@ async def poll(ctx: ESAContext):
     push_ledger(att, ledger)
     changed = push_inventory(att, ctx.inventory_counts(), ctx.write_diskettes)
     for line in changed:
-        logger.info("grant: %s", line)
+        logger.debug("grant: %s", line)
 
 
 async def main(args):
