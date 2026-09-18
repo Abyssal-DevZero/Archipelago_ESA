@@ -18,14 +18,19 @@ REGION_LOCATIONS: dict[str, list[str]] = {
     "Cave_Complex": [
         "Jump Booster Spot", "Dash Booster V Spot", "Rough Map Spot",
         "Health Pack Beetle Spot", "Diskette Caves Spot",
+        "Key Caves Spot",
+        "Pillar 1 Monitor", "Pillar 3 Monitor", "Pillar 4 Monitor",
     ],
     "The Depths": [
         "Diskette Depthsmaze Spot",
+        "Key Mwyah Spot",
     ],
     "The Volcanic Sector": [
         "Hookshot Spot", "Heat-Resistant suit Spot", "Supercharge Module Spot",
         "Dash Booster X Spot", "Health Pack FireLow Spot", "Health Pack FireHigh Spot",
         "Diskette FireLava Spot", "Diskette FireTop Spot",
+        "Key Fire Spot",
+        "Pillar 2 Monitor",
     ],
     "The Underwater Sector": [
         "Charge Shot Spot", "Propeller Spot", "Plasma Shield Spot",
@@ -40,14 +45,21 @@ REGION_LOCATIONS: dict[str, list[str]] = {
     ],
     "The Temple": [
         "Health Pack Temple Spot", "Diskette TempleLeft Spot", "Diskette TempleTall Spot",
+        "Key Temple Spot",
     ],
     "The Derelict Ship": [
         "Gold Keycard Spot", "Bike Spot", "Health Pack Ship Spot", "Diskette Ship Spot",
     ],
     "The Control Hub": [
         "Teleport Access Spot", "Diskette Security Spot",
+        "Power Monitor",
+        "Gate Alpha Monitor",
+        "Gate Beta Monitor",
+        "Gate Gamma Monitor",   
+        "Gate Delta Monitor",
     ],
     "The A.I. Mainframe": [],
+
 }
 
 def get_location_names_with_ids(location_names: list[str]) -> dict[str, int | None]:
