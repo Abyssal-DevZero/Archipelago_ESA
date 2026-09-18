@@ -41,8 +41,6 @@ class ESAWorld(World):
         
     def fill_slot_data(self) -> Mapping[str, Any]:
         data = self.options.as_dict(
-            "randomize_diskettes",
-            "damage_boost_logic",
             "start_with_jump_booster",
             "goal",
         )
