@@ -9,7 +9,7 @@ from . import options as esa_options
 class ESAWorld(World):
     """
     Environmental Station Alpha (short ESA, not the space agency) is a metroidvania playing on a forgotten space station. 
-    As the astronaut is diving deeper and deeper into the station they discover the cause of desertion and it's many hidden secrets.
+    As the astronaut is diving deeper and deeper into the station, they discover the cause of desertion and it's many hidden secrets.
     """
     game = "Environmental Station Alpha"
     web = web_world.ESAWebWorld()
@@ -20,7 +20,7 @@ class ESAWorld(World):
     location_name_to_id = locations.LOCATION_NAME_TO_ID
     item_name_to_id = items.ITEM_NAME_TO_ID
 
-    origin_region_name = "Cave_Complex"
+    origin_region_name = logic.START_REGION
     item_name_groups = items.ITEM_NAME_GROUPS
     
     def create_regions(self) -> None:
