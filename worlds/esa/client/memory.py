@@ -236,6 +236,7 @@ class Entry:
     grant_slot_base: tuple = None      # XOR EDX,EDX -> SLOT stub
     # rva -> exact original bytes. Required for BASE, SLOT and NOP sites
     site_expect: dict = field(default_factory=dict)
+    disp_sites: list = field(default_factory=list)
     base_pi: bool = False
     suppression_only: bool = False
     grant_only: bool = False
@@ -258,7 +259,25 @@ class Entry:
                     and all(isinstance(x, int) for x in pair)):
                 bad("extra_grants entries must be "
                     "(grant_src_rva, grant_slot_rva), got %r" % (pair,))
-
+        for site in self.disp_sites:
+            if not (isinstance(site, tuple) and len(site) == 3
+                    and isinstance(site[0], int)
+                    and isinstance(site[1], (bytes, bytearray))
+                    and isinstance(site[2], (bytes, bytearray))):
+                bad("disp_sites entries must be "
+                    "(rva, original_bytes, patched_bytes), got %r" % (site,))
+            rva, orig, patched = site
+            if len(orig) != len(patched):
+                bad("disp_sites at +%X changes the instruction length "
+                    "(%d -> %d); an in-place rewrite must not"
+                    % (rva, len(orig), len(patched)))
+            diff = [i for i, (a, b) in enumerate(zip(orig, patched)) if a != b]
+            if not diff:
+                bad("disp_sites at +%X patches to identical bytes" % rva)
+            if diff[-1] - diff[0] > 3:
+                bad("disp_sites at +%X differs across %d bytes; a displacement "
+                    "rewrite touches one dword only"
+                    % (rva, diff[-1] - diff[0] + 1))
         if self.grant_only and self.suppression_only:
             bad("grant_only and suppression_only are mutually exclusive")
         for f in ("suppress_fn", "pedestal", "grant_fn", "grant_slot_rva"):
@@ -334,7 +353,7 @@ class Entry:
     def ready(self):
         if not self.enabled or self.shadow is None:
             return False
-        if not (self.suppress_rvas or self.cave_sites or self.base_sites or self.nop_sites or self.grant_only):
+        if not (self.suppress_rvas or self.cave_sites or self.base_sites or self.nop_sites or self.grant_only or self.disp_sites):
             return False
         for rva, length in self.nop_sites:
             want = self.site_expect.get(rva)
@@ -347,6 +366,10 @@ class Entry:
         if self.suppression_only:
             return True
         has_suppression = bool(self.cave_sites or self.base_sites or self.suppress_rvas)
+        if (self.disp_sites and not has_suppression and not self.grant_only
+                and self.grant_slot_rva is None
+                and self.grant_slot_base is None):
+            return True
         if not has_suppression and not self.grant_only:
             return True                     # nop-only entry, nothing to grant
         if self.grant_slot_rva is None and self.grant_slot_base is None:
@@ -374,6 +397,8 @@ class Entry:
         if self.grant_slot_rva is not None:
             out.append(("grant setter slot", self.grant_slot_rva,
                         mov_edx(self.slot), mov_edx(self.shadow)))
+        for n, (r, orig, patched) in enumerate(self.disp_sites, start=1):
+            out.append((f"displacement #{n}", r, orig, patched))
         for n, (src, slot_rva) in enumerate(self.extra_grants, start=2):
             out.append((f"grant parser source #{n}", src,
                         add_rdx(real), add_rdx(sh)))
@@ -493,6 +518,36 @@ ENTRIES = [
               (0x39D792, 0x39D7D2),                             # Pillar 2
               (0x39D8A2, 0x39D8E2),                             # Pillar 3
               (0x39D9B2, 0x39D9F2),                             # Pillar 4
+          ],
+    Entry("lisa_keys", "Boss Keys", 5, (0x26, 0x27, 0x28, 0x29),
+          suppress_fn=0x301C00, pedestal=0xCFC8, grant_fn=0x301C00,
+          disp_sites=[
+              # 140301C00 - no keys held branch
+              (0x301CFA, bytes.fromhex("4881C340010000"),
+                         bytes.fromhex("4881C340040000")),
+              (0x30209E, bytes.fromhex("4881C240010000"),
+                         bytes.fromhex("4881C240040000")),
+              (0x302138, bytes.fromhex("488D8E40010000"),
+                         bytes.fromhex("488D8E40040000")),
+              (0x302144, bytes.fromhex("0FB68640010000"),
+                         bytes.fromhex("0FB68640040000")),
+              (0x30214F, bytes.fromhex("488D8E41010000"),
+                         bytes.fromhex("488D8E41040000")),
+              (0x302158, bytes.fromhex("488B8E48010000"),
+                         bytes.fromhex("488B8E48040000")),
+              # 140302270 - sibling branch, identical shape
+              (0x30236A, bytes.fromhex("4881C340010000"),
+                         bytes.fromhex("4881C340040000")),
+              (0x3026FE, bytes.fromhex("4881C240010000"),
+                         bytes.fromhex("4881C240040000")),
+              (0x302798, bytes.fromhex("488D8E40010000"),
+                         bytes.fromhex("488D8E40040000")),
+              (0x3027A4, bytes.fromhex("0FB68640010000"),
+                         bytes.fromhex("0FB68640040000")),
+              (0x3027AF, bytes.fromhex("488D8E41010000"),
+                         bytes.fromhex("488D8E41040000")),
+              (0x3027B8, bytes.fromhex("488B8E48010000"),
+                         bytes.fromhex("488B8E48040000")),
           ],
 ]
 
