@@ -89,8 +89,6 @@ def scan_checks(att) -> dict[int, str]:
     """{location id: character} for every check flag currently set."""
     found = {}
     for read_slot, indices in read_map().items():
-        if read_slot not in mem.REAL_OF:
-            continue
         raw = att.read(read_slot)
         if raw is None:
             continue
@@ -103,6 +101,8 @@ def scan_checks(att) -> dict[int, str]:
 def push_ledger(att, ledger: dict[int, str]) -> int:
     written = 0
     for read_slot, indices in read_map().items():
+        if read_slot not in mem.REAL_OF:
+            continue
         cur = att.read(read_slot)
         if cur is None:
             continue
