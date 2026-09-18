@@ -140,6 +140,22 @@ LOCATION_FLAG = {
     "Diskette SandBot Spot":    (4, 9),
     "Diskette FireTop Spot":    (4, 10),
     "Diskette Ship Spot":       (4, 11),
+    #Keys
+    "Key Mwyah Spot":  (5, 38),
+    "Key Fire Spot":   (5, 39),
+    "Key Caves Spot":  (5, 40),
+    "Key Temple Spot": (5, 41),
+    # text monitors
+    "Power Monitor":      (5, 8),
+    "Gate Alpha Monitor": (5, 18),
+    "Gate Beta Monitor":  (5, 19),
+    "Gate Gamma Monitor": (5, 20),
+    "Gate Delta Monitor": (5, 21),
+    "Pillar 1 Monitor":   (5, 32),
+    "Pillar 2 Monitor":   (5, 33),
+    "Pillar 3 Monitor":   (5, 34),
+    "Pillar 4 Monitor":   (5, 35),
+
 }
 
 # Because it would be too simple to switch between 0 and 1
@@ -163,6 +179,18 @@ ABILITY_FLAG = {
     "Dash Booster V":      (1, 1, "1"),
     "Dash Booster X":      (5, 2, "1"),
     "Teleport Access":     (5, 24, "1"),
+}
+
+MONITOR_FLAG = {
+    "Power":      (5, 0x08, "1"),
+    "Gate Alpha": (5, 0x12, "1"),
+    "Gate Beta":  (5, 0x13, "1"),
+    "Gate Gamma": (5, 0x14, "1"),
+    "Gate Delta": (5, 0x15, "1"),
+    "Pillar 1":   (5, 0x20, "1"),
+    "Pillar 2":   (5, 0x21, "1"),
+    "Pillar 3":   (5, 0x22, "1"),
+    "Pillar 4":   (5, 0x23, "1"),
 }
 
 DISKETTE_INDEX = {
