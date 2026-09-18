@@ -41,10 +41,10 @@ for _name in ABILITIES:
         DEFAULT_ITEM_CLASSIFICATIONS[_name] = ItemClassification.useful
 
 for _name in HEALTH_PACKS:
-    DEFAULT_ITEM_CLASSIFICATIONS[_name] = ItemClassification.useful
+    DEFAULT_ITEM_CLASSIFICATIONS[_name] = ItemClassification.progression
  #Making Diskettes not progression items, since they are not necessarely needed for progression, only for convenience Dash Booster X
 for _name in DISKETTES:
-    DEFAULT_ITEM_CLASSIFICATIONS[_name] = ItemClassification.useful
+    DEFAULT_ITEM_CLASSIFICATIONS[_name] = ItemClassification.progression
 for _name in KEYS:
     DEFAULT_ITEM_CLASSIFICATIONS[_name] = ItemClassification.progression
 for _name in MONITORS:
@@ -62,12 +62,7 @@ def get_random_filler_item_name(world: ESAWorld) -> str:
     return "Data Fragment"
 
 def create_item_with_correct_classification(world: ESAWorld, name: str) -> ESAItem:
-    classification = DEFAULT_ITEM_CLASSIFICATIONS[name]
- 
-    if name in HEALTH_PACKS and world.options.damage_boost_logic:
-        classification = ItemClassification.progression
- 
-    return ESAItem(name, classification, ITEM_NAME_TO_ID[name], world.player)
+    return ESAItem(name, DEFAULT_ITEM_CLASSIFICATIONS[name], ITEM_NAME_TO_ID[name], world.player)
 
 def create_event_item(world: ESAWorld, name: str) -> ESAItem:
     return ESAItem(name, ItemClassification.progression, None, world.player)
@@ -87,11 +82,8 @@ def create_all_items(world: ESAWorld) -> None:
 
     for name in HEALTH_PACKS:
         itempool.append(world.create_item(name))
-
-    # 12 Diskettes are optional
-    if world.options.randomize_diskettes:
-        for name in DISKETTES:
-            itempool.append(world.create_item(name))
+    for name in DISKETTES:
+        itempool.append(world.create_item(name))
     for name in MONITORS:
         itempool.append(world.create_item(name))
     for name in KEYS:
@@ -103,13 +95,12 @@ def create_all_items(world: ESAWorld) -> None:
   
     if needed_number_of_filler_items < 0:
         raise Exception(
-            f"ESA created {number_of_items} items for only {number_of_unfilled_locations} "
+            f"ESA created {number_of_items} items for only {number_of_unfilled_locations} unfillsed locations "
         )
 
     itempool += [world.create_filler() for _ in range(needed_number_of_filler_items)]
     world.multiworld.itempool += itempool
 
-}
 ITEM_NAME_GROUPS = {
     "Abilities": set(ABILITIES),
     "Health Packs": set(HEALTH_PACKS),
