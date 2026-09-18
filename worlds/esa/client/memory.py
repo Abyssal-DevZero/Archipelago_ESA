@@ -220,7 +220,7 @@ class Entry:
     label: str
     slot: int
     index: object
-    suppress_fn: int
+    suppress_fn: int = None
     pedestal: int = None
     suppress_rvas: list = field(default_factory=list)   # 7-byte, in place
     cave_sites: list = field(default_factory=list)      # 4-byte, trampoline
@@ -238,6 +238,9 @@ class Entry:
     site_expect: dict = field(default_factory=dict)
     base_pi: bool = False
     suppression_only: bool = False
+    grant_only: bool = False
+    # the four pillars share a single display event but have a writer each
+    extra_grants: list = field(default_factory=list)
     enabled: bool = True
     note: str = ""
 
@@ -245,7 +248,19 @@ class Entry:
         """Validate field shapes at import, not mid-patch."""
         def bad(what):
             raise ValueError("Entry(%r): %s" % (self.id, what))
+        if self.index != "computed" and not isinstance(self.index, int):
+            if not (isinstance(self.index, tuple) and self.index
+                    and all(isinstance(i, int) for i in self.index)):
+                bad("index must be an int, a non-empty tuple of ints, or "
+                    "\"computed\", got %r" % (self.index,))
+        for pair in self.extra_grants:
+            if not (isinstance(pair, tuple) and len(pair) == 2
+                    and all(isinstance(x, int) for x in pair)):
+                bad("extra_grants entries must be "
+                    "(grant_src_rva, grant_slot_rva), got %r" % (pair,))
 
+        if self.grant_only and self.suppression_only:
+            bad("grant_only and suppression_only are mutually exclusive")
         for f in ("suppress_fn", "pedestal", "grant_fn", "grant_slot_rva"):
             v = getattr(self, f)
             if v is not None and not isinstance(v, int):
@@ -319,26 +334,27 @@ class Entry:
     def ready(self):
         if not self.enabled or self.shadow is None:
             return False
-        if not (self.suppress_rvas or self.cave_sites or self.base_sites
-                or self.nop_sites):
+        if not (self.suppress_rvas or self.cave_sites or self.base_sites or self.nop_sites or self.grant_only):
             return False
         for rva, length in self.nop_sites:
             want = self.site_expect.get(rva)
             if not want or len(want) != length:
                 return False
-        # every BASE site needs its original bytes recorded from Ghidra
+        # every BASE site needs its original bytes
         for _, rva, _, kind in self.detour_sites:
             if kind in ("base", "slot") and not self.site_expect.get(rva):
                 return False
         if self.suppression_only:
             return True
-        if not (self.cave_sites or self.base_sites or self.suppress_rvas):
+        has_suppression = bool(self.cave_sites or self.base_sites or self.suppress_rvas)
+        if not has_suppression and not self.grant_only:
             return True                     # nop-only entry, nothing to grant
         if self.grant_slot_rva is None and self.grant_slot_base is None:
             return False
-        return (self.grant_src_rva is not None
-                or self.grant_src_cave is not None
-                or self.grant_src_base is not None)
+        if not (self.grant_src_rva is not None or self.grant_src_cave is not None or self.grant_src_base is not None):
+            return False
+        return all(isinstance(a, int) and isinstance(b, int)
+                   for a, b in self.extra_grants)
 
     def sites(self):
         """-> [(label, rva, original_bytes, patched_bytes)] — in-place only."""
@@ -357,6 +373,11 @@ class Entry:
                         add_rdx(real), add_rdx(sh)))
         if self.grant_slot_rva is not None:
             out.append(("grant setter slot", self.grant_slot_rva,
+                        mov_edx(self.slot), mov_edx(self.shadow)))
+        for n, (src, slot_rva) in enumerate(self.extra_grants, start=2):
+            out.append((f"grant parser source #{n}", src,
+                        add_rdx(real), add_rdx(sh)))
+            out.append((f"grant setter slot #{n}", slot_rva,
                         mov_edx(self.slot), mov_edx(self.shadow)))
         for rva, length in self.nop_sites:
             want = self.site_expect.get(rva)
@@ -447,26 +468,83 @@ ENTRIES = [
               0x2F1737: bytes.fromhex("F20F114230"),
           },
           base_pi=True),
+    # text monitors
+    Entry("lisa8", "Power", 5, 8,
+          grant_fn=0x378A10, grant_src_rva=0x378B35, grant_slot_rva=0x378B70,
+          grant_only=True,),
+    Entry("lisa18", "Gate Alpha", 5, 0x12,
+          grant_fn=0x37E0E0, grant_src_rva=0x37E195, grant_slot_rva=0x37E1E8,
+          grant_only=True,),
+    Entry("lisa19", "Gate Beta", 5, 0x13,
+          grant_fn=0x37E370, grant_src_rva=0x37E425, grant_slot_rva=0x37E478,
+          grant_only=True),
+    Entry("lisa20", "Gate Gamma", 5, 0x14,
+          grant_fn=0x37E600, grant_src_rva=0x37E6B5, grant_slot_rva=0x37E708,
+          grant_only=True),
+    Entry("lisa21", "Gate Delta", 5, 0x15,
+          grant_fn=0x37E890, grant_src_rva=0x37E945, grant_slot_rva=0x37E998,
+          grant_only=True),
+    Entry("lisa_pillars", "Pillars 1-4", 5, (0x20, 0x21, 0x22, 0x23),
+          suppress_fn=0x384E30, pedestal=0xBD78,
+          suppress_rvas=[0x384F17],
+          grant_fn=0x39D5E0,
+          grant_src_rva=0x39D682, grant_slot_rva=0x39D6C2,      # Pillar 1
+          extra_grants=[
+              (0x39D792, 0x39D7D2),                             # Pillar 2
+              (0x39D8A2, 0x39D8E2),                             # Pillar 3
+              (0x39D9B2, 0x39D9F2),                             # Pillar 4
+          ],
 ]
 
 ENTRY_BY_ID = {e.id: e for e in ENTRIES}
-ENTRY_BY_SLOT = {}
+ENTRIES_BY_SLOT = {}
 for _e in ENTRIES:
-    ENTRY_BY_SLOT.setdefault(_e.slot, _e)
+    ENTRIES_BY_SLOT.setdefault(_e.slot, []).append(_e)
+
+# kept for callers that only care that some redirect exists on a slot
+ENTRY_BY_SLOT = {s: es[0] for s, es in ENTRIES_BY_SLOT.items()}
+
+ALL_INDICES = object()
 
 
-def shadow_live(real_slot):
-    """Is this slot's redirect installable?
-    A slot whose entry is not ready has an all-zero shadow nothing writes to,
-    so its checks must be read from the real slot instead.
+def shadow_coverage(real_slot):
+    """Which indices of `real_slot` are actually redirected into its shadow.
+
+    -> ALL_INDICES  a computed-index entry owns the whole slot
+    -> set()        nothing ready: read the real slot
+    -> {i, j, ...}  only these indices are written to the shadow
+
+    This is per *index*, not per slot..
     """
-    e = ENTRY_BY_SLOT.get(real_slot)
-    return bool(e and e.enabled and e.ready and e.shadow is not None)
+    if SHADOW_OF.get(real_slot) is None:
+        return set()
+    covered = set()
+    for e in ENTRIES_BY_SLOT.get(real_slot, ()):
+        if not (e.enabled and e.ready) or e.shadow is None:
+            continue
+        if e.index == "computed":
+            return ALL_INDICES
+        if isinstance(e.index, tuple):
+            covered.update(e.index)
+        else:
+            covered.add(e.index)
+    return covered
 
 
-def read_slot_for(real_slot):
+def shadow_live(real_slot, index=None):
+    """Is the redirect installed for this slot?
+    """
+    cov = shadow_coverage(real_slot)
+    if cov is ALL_INDICES:
+        return True
+    if index is None:
+        return bool(cov)
+    return index in cov
+
+
+def read_slot_for(real_slot, index=None):
     """Which slot the client should read checks out of."""
-    return SHADOW_OF[real_slot] if shadow_live(real_slot) else real_slot
+    return SHADOW_OF[real_slot] if shadow_live(real_slot, index) else real_slot
 
 # Win32 plumbing
 
