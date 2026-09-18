@@ -94,6 +94,8 @@ def create_all_items(world: ESAWorld) -> None:
             itempool.append(world.create_item(name))
     for name in MONITORS:
         itempool.append(world.create_item(name))
+    for name in KEYS:
+        itempool.append(world.create_item(name))
         
     number_of_items = len(itempool)
     number_of_unfilled_locations = len(world.multiworld.get_unfilled_locations(world.player))
