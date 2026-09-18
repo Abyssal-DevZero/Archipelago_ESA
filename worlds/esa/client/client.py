@@ -23,6 +23,9 @@ from .memory import DETACHED, READY, SLOTS, hpmax_for
 from ..data import (
     ABILITY_FLAG,
     CHECK_CHAR_BY_ID,
+    GRANT_FLAG,
+    MONITOR_FLAG,
+    COUPLED_LOCATIONS,
     DISKETTE_INDEX,
     HEALTH_ITEMS,
     ID_TO_LOCATION,
@@ -35,19 +38,26 @@ POLL_INTERVAL = 0.2
 
 _READ_MAP_CACHE: dict[tuple, dict] = {}
 
-
+def _coverage_key():
+    """Hashable snapshot of which (slot, index) pairs are redirected."""
+    out = []
+    for slot in sorted(mem.SHADOW_OF):
+        cov = mem.shadow_coverage(slot)
+        out.append((slot, "all" if cov is mem.ALL_INDICES else tuple(sorted(cov))))
+    return tuple(out)
+  
 def read_map() -> dict[int, dict[int, int]]:
     """{slot to read -> {index -> location id}}.
 
     Patched slots are read through their shadow
     """
-    key = tuple(sorted(s for s in mem.SHADOW_OF if mem.shadow_live(s)))
+    key = _coverage_key()
     cached = _READ_MAP_CACHE.get(key)
     if cached is not None:
         return cached
     out: dict[int, dict[int, int]] = {}
     for name, (real_slot, index) in LOCATION_FLAG.items():
-        out.setdefault(mem.read_slot_for(real_slot), {})[index] = \
+        out.setdefault(mem.read_slot_for(real_slot, index), {})[index] = \
             LOCATION_NAME_TO_ID[name]
     _READ_MAP_CACHE[key] = out
     return out
@@ -79,6 +89,8 @@ def scan_checks(att) -> dict[int, str]:
     """{location id: character} for every check flag currently set."""
     found = {}
     for read_slot, indices in read_map().items():
+        if read_slot not in mem.REAL_OF:
+            continue
         raw = att.read(read_slot)
         if raw is None:
             continue
@@ -110,11 +122,10 @@ def push_ledger(att, ledger: dict[int, str]) -> int:
 def push_inventory(att, counts: dict[str, int], write_diskettes: bool) -> list:
     """Project the AP inventory onto the game's real flags.
 
-    Idempotent and authoritative in both directions: a flag AP did not grant
-    is cleared. Only indices this client owns are touched
+    Idempotent and authoritative in both directions: a flag AP did not grant is cleared. Only indices this client owns are touched
     """
     owned: dict[tuple, str] = {}
-    for name, (slot, index, char) in ABILITY_FLAG.items():
+    for name, (slot, index, char) in GRANT_FLAG.items():
         owned[(slot, index)] = char if counts.get(name, 0) else "0"
     if write_diskettes:
         for name, index in DISKETTE_INDEX.items():
@@ -192,8 +203,11 @@ class ESACommandProcessor(ClientCommandProcessor):
         ab = sum(1 for n in ABILITY_FLAG if counts.get(n))
         hp = min(8, sum(counts.get(n, 0) for n in HEALTH_ITEMS))
         dk = sum(1 for n in DISKETTE_INDEX if counts.get(n))
-        self.output(f"inventory: {ab}/15 abilities, {hp}/8 health packs "
-                    f"(hpmax {hpmax_for(hp)}), {dk}/12 diskettes")
+        mo = sum(1 for n in MONITOR_FLAG if counts.get(n))
+        self.output(f"inventory: {ab}/{len(ABILITY_FLAG)} abilities, "
+                    f"{hp}/8 health packs (hpmax {hpmax_for(hp)}), "
+                    f"{dk}/{len(DISKETTE_INDEX)} diskettes, "
+                    f"{mo}/{len(MONITOR_FLAG)} monitors")
 
     def _cmd_patch(self):
         """Force a patch attempt now."""
@@ -270,9 +284,7 @@ class ESAContext(CommonContext):
                 set(args.get("checked_locations", ()))
             stray = sorted(set(LOCATION_NAME_TO_ID.values()) - known)
             if stray:
-                logger.warning("the server does not know location id(s) %s — "
-                               "this client's tables are out of step with the "
-                               "apworld", stray)
+                logger.warning("the server does not know location id(s) %s — this client's tables are out of step with the apworld", stray)
         elif cmd == "ReceivedItems":
             self.items_synced = True
         elif cmd == "RoomUpdate":
@@ -366,10 +378,15 @@ async def poll(ctx: ESAContext):
                        and i not in ledger]
         if len(health_seen) > 2:
             logger.warning(
-                "baseline: %d Health Pack flag(s) are already set in this "
-                "save. They are being sent as checks. If this is an old "
-                "non-randomised save, start a new file instead.",
+                "baseline: %d Health Pack flag(s) are already set in this save. They are being sent as checks. If this is an old non-randomised save, start a new file instead.",
                 len(health_seen))
+        coupled_seen = [ID_TO_LOCATION[i] for i in found
+                        if ID_TO_LOCATION.get(i) in COUPLED_LOCATIONS
+                        and i not in ledger]
+        if coupled_seen:
+            logger.warning(
+                "baseline: %d story flag(s) are already set in this save (%s). They are being sent as checks. Start a new file if that was not intended.",
+                len(coupled_seen), ", ".join(sorted(coupled_seen)))
 
     new = []
     for loc_id, char in found.items():
