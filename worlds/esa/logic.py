@@ -189,9 +189,6 @@ class _Graph:
                 item_index=item_index,
                 location=ITEM_INDEX_TO_LOCATION.get(item_index) if item_index is not None else None,
             )
-            for token, _event in FLAG_EVENTS.items():
-                if token in fields:
-                    self.flag_grants[token] = node_id
 
     def _add_edge(self, source: str, target: str, terms: tuple[frozenset[str], ...], suffix: str = "") -> None:
         if not terms:
@@ -248,7 +245,6 @@ START_NODE: str = _GRAPH.start_node
 START_REGION: str = _GRAPH.start_region
 TELEPORT_PADS: dict[str, str] = _GRAPH.teleport_pads
 TELEPORT_FINDS: dict[str, str] = _GRAPH.teleport_finds
-FLAG_GRANTS: dict[str, str] = _GRAPH.flag_grants
 GRAPH_FINGERPRINT: str = _GRAPH.fingerprint
 
 # node id -> AP location name, for every node holding a randomized item
@@ -289,10 +285,5 @@ def _validate() -> None:
     orphan_pads = set(TELEPORT_PADS) - set(TELEPORT_FINDS)
     if orphan_pads:
         raise ValueError(f"teleporters that can never be found: {sorted(orphan_pads)}")
-
-    for token in FLAG_EVENTS:
-        if token in ALL_TOKENS and token not in FLAG_GRANTS:
-            raise ValueError(f"token {token!r} is required by an edge but nothing grants it")
-
 
 _validate()
