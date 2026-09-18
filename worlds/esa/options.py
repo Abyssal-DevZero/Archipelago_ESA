@@ -18,23 +18,6 @@ class Goal(Choice):
     option_postgame = 1
     default = 0
 
-
-class RandomizeDiskettes(Toggle):
-    """
-    Shuffle the 12 Diskettes into the item pool. Access Dash Booster X without Damage Boosting
-    """
-
-    display_name = "Randomize Diskettes"
-
-
-class DamageBoostLogic(Toggle):
-    """
-    Allow logic to expect damage boosts, which makes Health Packs progression items.
-    """
-
-    display_name = "Damage Boost Logic"
-
-
 class StartWithJumpBooster(DefaultOnToggle):
     """
     Begin with the Jump Booster instead of having to find it. For faster seeds. Dunno if that should be an option, but it's in here for now.
