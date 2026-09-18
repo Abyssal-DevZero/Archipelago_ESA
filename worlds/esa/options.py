@@ -29,6 +29,4 @@ class StartWithJumpBooster(DefaultOnToggle):
 @dataclass
 class ESAOptions(PerGameCommonOptions):
     goal: Goal
-    randomize_diskettes: RandomizeDiskettes
-    damage_boost_logic: DamageBoostLogic
     start_with_jump_booster: StartWithJumpBooster
