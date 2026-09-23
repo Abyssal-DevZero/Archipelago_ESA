@@ -41,3 +41,9 @@ def create_events(world: ESAWorld) -> None:
             event_name, event_name,
             location_type=ESALocation, item_type=items.ESAItem,
         )
+    for token, event_name in logic.FLAG_TOKEN_EVENTS.items():
+        region = world.get_region(logic.NODES[logic.FLAG_GRANTS[token]].region)
+        region.add_event(
+            event_name, event_name,
+            location_type=ESALocation, item_type=items.ESAItem,
+        )
