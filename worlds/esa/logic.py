@@ -26,12 +26,18 @@ DROPPED_TOKENS = frozenset({"poweroff", "growthoff", "growthon", "mender"})
 
 # Node 121 "Derelict 5" is an orphan
 SKIPPED_NODES = frozenset({"121"})
+# classa is still unmapped
+FREE_TOKENS = frozenset({"classa"})
 
-# Tokens a node can grant by being reached, exactly like teleportfind.
+FLAG_TOKEN_EVENTS = {
+    "switch": "Propeller Room Switch",
+}
+# Tokens a node grants by being reached (the ini writes them as `<token>="1"` on the node, exactly like teleportfind)
+FLAG_TOKEN_LOCATIONS = {
+    "password": "Password Monitor",
+}
+
 TELEPORT_HUB_REGION = "Teleport Network"
-
-# How many distinct Health Packs logic expects before a damage boost through lava or acid is considered fair
-DAMAGE_BOOST_HEALTH_PACKS = 4
 
 # The ini's item index is also its node id. Location names do not always match item names ("The Bike" lives at "Bike Spot"), so the mapping is explicit and checked against data.py at import.
 # TODO: Index 39 (CROWN) is not implemented yet as the crown has some... unique coding attached to it
@@ -134,6 +140,7 @@ def _parse_expression(expression: str) -> tuple[frozenset[str], ...]:
         if tokens & DROPPED_TOKENS:
             continue
         tokens.discard("nothing")
+        tokens -= FREE_TOKENS
         term = frozenset(tokens)
         if term not in terms:
             terms.append(term)
@@ -182,13 +189,39 @@ class _Graph:
             item = fields.get("item")
             item_index = int(item) if item is not None else None
             name = fields.get("name", f"Node {node_id}")
+            location = ITEM_INDEX_TO_LOCATION.get(item_index) if item_index is not None else None
+
+            flag_location = self._scan_flags(node_id, fields)
+            if flag_location is not None:
+                if location is not None:
+                    raise ValueError(
+                        f"node {node_id} holds both {location!r} and {flag_location!r}; a node holds one location")
+                location = flag_location
+
             self.nodes[node_id] = Node(
                 id=node_id,
                 name=name,
                 region=_region_name(node_id, name),
                 item_index=item_index,
-                location=ITEM_INDEX_TO_LOCATION.get(item_index) if item_index is not None else None,
+                location=location,
             )
+
+    def _scan_flags(self, node_id: str, fields: dict[str, str]) -> str | None:
+        """Record every flag token this node grants, and return the one that is a real location, if any."""
+        found = None
+        for token in (*FLAG_TOKEN_LOCATIONS, *FLAG_TOKEN_EVENTS):
+            if fields.get(token) != "1":
+                continue
+            if token in self.flag_grants:
+                raise ValueError(
+                    f"token {token!r} is granted by nodes {self.flag_grants[token]} and {node_id}, one granting node per token")
+            self.flag_grants[token] = node_id
+            if token not in FLAG_TOKEN_LOCATIONS:
+                continue
+            if found is not None:
+                raise ValueError(f"node {node_id} grants more than one flag location")
+            found = FLAG_TOKEN_LOCATIONS[token]
+        return found
 
     def _add_edge(self, source: str, target: str, terms: tuple[frozenset[str], ...], suffix: str = "") -> None:
         if not terms:
@@ -233,6 +266,8 @@ class _Graph:
         for edge in sorted(self.edges, key=lambda e: e.name):
             terms = ";".join(sorted("&".join(sorted(term)) for term in edge.terms))
             digest.update(f"{edge.source}>{edge.target}|{terms}\n".encode())
+        for token, node_id in sorted(self.flag_grants.items()):
+            digest.update(f"grant {token}>{node_id}\n".encode())
         return digest.hexdigest()[:16]
 
 
@@ -245,6 +280,7 @@ START_NODE: str = _GRAPH.start_node
 START_REGION: str = _GRAPH.start_region
 TELEPORT_PADS: dict[str, str] = _GRAPH.teleport_pads
 TELEPORT_FINDS: dict[str, str] = _GRAPH.teleport_finds
+FLAG_GRANTS: dict[str, str] = _GRAPH.flag_grants
 GRAPH_FINGERPRINT: str = _GRAPH.fingerprint
 
 # node id -> AP location name, for every node holding a randomized item
@@ -264,13 +300,33 @@ ALL_TOKENS: frozenset[str] = frozenset(
 
 def _validate() -> None:
     """Fail at import rather than halfway through generation."""
-    unknown = set(ITEM_INDEX_TO_LOCATION.values()) - set(LOCATION_NAME_TO_ID)
+    mapped = set(ITEM_INDEX_TO_LOCATION.values()) | set(FLAG_TOKEN_LOCATIONS.values())
+
+    unknown = mapped - set(LOCATION_NAME_TO_ID)
     if unknown:
         raise ValueError(f"logic maps locations that data.py does not define: {sorted(unknown)}")
 
-    unmapped = set(LOCATION_NAME_TO_ID) - set(ITEM_INDEX_TO_LOCATION.values())
+    unmapped = set(LOCATION_NAME_TO_ID) - mapped
     if unmapped:
         raise ValueError(f"data.py defines locations no ini node holds: {sorted(unmapped)}")
+
+    flag_tokens = set(FLAG_TOKEN_LOCATIONS) | set(FLAG_TOKEN_EVENTS)
+
+    overlap = set(FLAG_TOKEN_LOCATIONS) & set(FLAG_TOKEN_EVENTS)
+    if overlap:
+        raise ValueError(f"tokens cannot be a location and an event at once: {sorted(overlap)}")
+
+    both = (FREE_TOKENS | DROPPED_TOKENS) & flag_tokens
+    if both:
+        raise ValueError(f"tokens cannot be free and granted at once: {sorted(both)}")
+
+    ungranted = flag_tokens - set(FLAG_GRANTS)
+    if ungranted:
+        raise ValueError(f"no ini node grants these flag tokens: {sorted(ungranted)}")
+
+    unused = flag_tokens - ALL_TOKENS
+    if unused:
+        raise ValueError(f"flag tokens that gate no edge, so their item would be dead weight: {sorted(unused)}")
 
     known_indices = set(ITEMDATA_INDEX.values()) | set(KEY_INDEX.values()) | set(MONITOR_INDEX.values())
     stray = set(ITEM_INDEX_TO_LOCATION) - known_indices
@@ -278,12 +334,11 @@ def _validate() -> None:
         raise ValueError(f"logic maps item indices data.py does not know: {sorted(stray)}")
 
     placed = set(ITEM_NODES.values())
-    missing = set(ITEM_INDEX_TO_LOCATION.values()) - placed
+    missing = mapped - placed
     if missing:
         raise ValueError(f"locations with no node to live in: {sorted(missing)}")
 
     orphan_pads = set(TELEPORT_PADS) - set(TELEPORT_FINDS)
     if orphan_pads:
         raise ValueError(f"teleporters that can never be found: {sorted(orphan_pads)}")
-
 _validate()
