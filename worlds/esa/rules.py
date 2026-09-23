@@ -52,6 +52,7 @@ TOKEN_RULES: dict[str, Rule] = {
  
 TELEPORT_ACCESS = Has("Teleport Access")
 AI_MAINFRAME_NODE = "116"
+CLASS_A_NODE = "115"
 
 def rule_for_term(term: frozenset[str]) -> Rule | None:
     """AND the tokens of one product together. An empty product is free passage."""
@@ -94,10 +95,15 @@ def set_all_entrance_rules(world: ESAWorld) -> None:
         )
 
 def set_completion_rule(world: ESAWorld) -> None:
-    beat_the_mainframe = CanReachRegion(logic.NODES[AI_MAINFRAME_NODE].region)
- 
+    # First ending: Power restored, all four gates open, and Class A reachable.
+    base_game = (
+        Has("Power")
+        & HasGroupUnique("Gates", count=4)
+        & CanReachRegion(logic.NODES[CLASS_A_NODE].region)
+    )
+
     if world.options.goal == Goal.option_postgame:
-        # Setting goal to four pillars for now even tho it should include beating Mwyah
-        world.set_completion_rule(beat_the_mainframe & HasGroupUnique("Pillars", count=4))
+        # TODO: still a placeholder. Mwyah has no node in the ini yet.
+        world.set_completion_rule(base_game & HasGroupUnique("Pillars", count=4))
     else:
-        world.set_completion_rule(beat_the_mainframe)
+        world.set_completion_rule(base_game)
