@@ -99,6 +99,11 @@ def scan_checks(att) -> dict[int, str]:
 
 
 def push_ledger(att, ledger: dict[int, str]) -> int:
+    """Checked locations back into the shadows, one character at a time.
+
+    The game writes these same shadow strings from its grant events, so a
+    whole-string rewrite could eat a check it recorded mid-poll.
+    """
     written = 0
     for read_slot, indices in read_map().items():
         if read_slot not in mem.REAL_OF:
@@ -106,44 +111,53 @@ def push_ledger(att, ledger: dict[int, str]) -> int:
         cur = att.read(read_slot)
         if cur is None:
             continue
-        chars = list(cur)
-        dirty = False
         for index, loc_id in indices.items():
-            if loc_id not in ledger or index >= len(chars):
-                continue
-            if chars[index] == "0":
-                chars[index] = ledger[loc_id] or "1"
-                dirty = True
-        if dirty and att.write(read_slot, "".join(chars)):
-            written += 1
+            if loc_id in ledger and index < len(cur) and cur[index] == "0":
+                if att.write_char(read_slot, index, ledger[loc_id] or "1"):
+                    written += 1
     return written
 
 
-def push_inventory(att, counts: dict[str, int], write_diskettes: bool) -> list:
+def push_inventory(att, counts: dict[str, int], write_diskettes: bool,
+                   project_story: bool = True) -> list:
     """Project the AP inventory onto the game's real flags.
 
-    Idempotent and authoritative in both directions: a flag AP did not grant is cleared. Only indices this client owns are touched
+    Idempotent, one character at a time, and only on indices this client owns:
+      received      '0'        -> grant char
+      not received  grant char -> '0'   (revokes a vanilla grant that leaked)
+      anything else            -> left alone
+
+    An index whose redirect is not live is skipped entirely: the game still records that location in the real flag, so writing the item there would send the check too.
     """
-    owned: dict[tuple, str] = {}
+    wants = []                                # (slot, index, char, have)
     for name, (slot, index, char) in GRANT_FLAG.items():
-        owned[(slot, index)] = char if counts.get(name, 0) else "0"
+        if name not in ABILITY_FLAG and not project_story:
+            continue
+        if not mem.shadow_live(slot, index):
+            continue
+        wants.append((slot, index, char, counts.get(name, 0) > 0))
     if write_diskettes:
         for name, index in DISKETTE_INDEX.items():
-            owned[(4, index)] = "1" if counts.get(name, 0) else "0"
+            wants.append((4, index, "1", counts.get(name, 0) > 0))
 
     changed = []
-    for slot in sorted({s for s, _ in owned}):
-        name, length = SLOTS[slot]
+    for slot in sorted({w[0] for w in wants}):
+        name = SLOTS[slot][0]
         cur = att.read(slot)
         if cur is None:
             continue
-        chars = list(cur)
-        for (s, index), char in owned.items():
-            if s == slot and index < len(chars):
-                chars[index] = char
-        want = "".join(chars)
-        if want != cur and att.write(slot, want):
-            changed.append(f"{name} {cur} -> {want}")
+        for s, index, char, have in wants:
+            if s != slot or index >= len(cur):
+                continue
+            c = cur[index]
+            if have and c == "0":
+                new = char
+            elif not have and c == char:
+                new = "0"
+            else:
+                continue
+            if att.write_char(slot, index, new):
+                changed.append(f"{name}[{index}] {c} -> {new}")
 
     packs = min(8, sum(counts.get(n, 0) for n in HEALTH_ITEMS))
 
@@ -190,7 +204,12 @@ class ESACommandProcessor(ClientCommandProcessor):
         """Show attach, patch and inventory state."""
         ctx: ESAContext = self.ctx
         att = ctx.att
-        self.output(f"state: {ctx.state}")
+        why = f" ({att.last_why})" if ctx.state != READY and att.last_why else ""
+        self.output(f"state: {ctx.state}{why}")
+        if att.held_off:
+            self.output(f"held off: {', '.join(sorted(att.held_off))}")
+        if not ctx.project_story:
+            self.output("story projection OFF (/story on)")
         if att.proc:
             table = f"{att.sbase:X}" if att.sbase else "not allocated"
             self.output(f"pid {att.proc.pid}, module {att.proc.base:X}, "
@@ -228,6 +247,82 @@ class ESACommandProcessor(ClientCommandProcessor):
         ctx.att.shadow_ready = False
         self.output("shadow slots will be rewritten on the next poll")
 
+    def _cmd_slots(self):
+        """Real vs shadow contents of every mirrored slot."""
+        att = self.ctx.att
+        if not att.game or not att.sbase:
+            self.output("not attached")
+            return
+        for real, sh in sorted(mem.SHADOW_OF.items()):
+            self.output(f"{SLOTS[real][0]:>9}  real   {att.read(real)}")
+            self.output(f"{'':>9}  shadow {att.read(sh)}")
+
+    def _cmd_entry(self, entry_id: str = "", switch: str = ""):
+        """List patch entries, or `/entry <id> off|on` to pull one out live."""
+        att = self.ctx.att
+        if not entry_id:
+            for e in mem.ENTRIES:
+                st = att.patcher.entry_state(e) if att.patcher else "-"
+                held = "  HELD OFF" if e.id in att.held_off else ""
+                self.output(f"{e.id:<14} {st:<8} {e.label}{held}")
+            return
+        if switch.lower() == "off":
+            self.output(att.hold(entry_id))
+        elif switch.lower() == "on":
+            self.output(att.release(entry_id))
+        else:
+            self.output("usage: /entry <id> off|on")
+
+    def _cmd_kill(self):
+        """Set current HP to 0 to escape a softlock. You respawn at your last save."""
+        ctx: ESAContext = self.ctx
+        game = ctx.att.game              # local ref: the watcher thread may detach mid-command
+        if ctx.state != READY or game is None:
+            self.output(f"can't kill you from here — no live gameplay frame ({ctx.state})")
+            return
+        before = game.read_counter(mem.OBJ_HP_COUNTER)
+        if before is None:
+            self.output("can't find the HP counter in this frame")
+            return
+        # The counter object, not Global Value 3: that one is on
+        # VALUE_DO_NOT_WRITE, and the counter is what the clamp already uses.
+        if not game.write_counter_value(mem.OBJ_HP_COUNTER, 0):
+            self.output("HP write failed")
+            return
+        after = game.read_counter(mem.OBJ_HP_COUNTER)
+        if after is None or after[0] != 0:
+            self.output(f"wrote 0 but read back {after[0] if after else '?'} — the game overrode it")
+            return
+        logger.info("kill: HP %g -> 0. Checks are kept; items re-sync after respawn.",
+                    before[0])
+
+    def _cmd_unstuck(self):
+        """Kills you and sets your respawn back to the first Health Station"""
+        ctx: ESAContext = self.ctx
+        game = ctx.att.game
+        if ctx.state != READY or game is None:
+            self.output(f"no live gameplay frame ({ctx.state})")
+            return
+        slot = game.active_slot()
+        if slot is None:
+            self.output("can't tell which save slot is loaded, not touching anything")
+            return
+        keys = game.save_keys_map(slot)
+        if keys is None:
+            self.output(f"save{slot} not found in the INI cache")
+            return
+        old = {k: game.read_save_key(keys, k) for k in mem.SHIP_SPAWN}
+        if None in old.values():
+            self.output(f"spawn keys missing in save{slot}: {old}")
+            return
+        for k, v in mem.SHIP_SPAWN.items():
+            if not game.write_save_key(keys, k, v):
+                for kk, vv in old.items():               # all four or none
+                    game.write_save_key(keys, kk, vv)
+                self.output(f"write to {k} failed, old spawn restored")
+                return
+        self._cmd_kill()
+
     def _cmd_goal(self):
         """Mark the seed finished.  Manual — the final boss flag is unmapped."""
         ctx: ESAContext = self.ctx
@@ -249,6 +344,7 @@ class ESAContext(CommonContext):
         self.ledger = Ledger()
         self.state = DETACHED
         self.write_diskettes = True
+        self.project_story = True       # /story off to stop writing monitors/keys
         self.items_synced = False
         self.seed_name = None
         self.last_shadow_generation = -1
@@ -293,8 +389,7 @@ class ESAContext(CommonContext):
 
     def inventory_counts(self) -> dict[str, int]:
         """Item name -> quantity received.
-        Location and player are ignored: starting inventory has no location
-        attributed and item links come from another player
+        Location and player are ignored: starting inventory has no location attributed and item links come from another player
         """
         counts: dict[str, int] = {}
         for net_item in self.items_received:
@@ -347,8 +442,7 @@ async def game_watcher(ctx: ESAContext):
             continue
 
         if not announced_ready:
-            logger.info("Ready — connected as %s and hooked into the game. "
-                        "Start a NEW game; do not load an existing save.",
+            logger.info("Game attached and connected as %s ",
                         ctx.auth or ctx.slot)
             announced_ready = True
 
@@ -367,7 +461,7 @@ async def poll(ctx: ESAContext):
         ctx.last_shadow_generation = att.shadow_generation
         n = push_ledger(att, ledger)
         if n:
-            logger.debug("restored %d slot(s) worth of checks into the game", n)
+            logger.debug("restored %d check(s) into the game", n)
 
     found = scan_checks(att)
 
@@ -406,7 +500,8 @@ async def poll(ctx: ESAContext):
 
     # Server truth back into the game, then the inventory
     push_ledger(att, ledger)
-    changed = push_inventory(att, ctx.inventory_counts(), ctx.write_diskettes)
+    changed = push_inventory(att, ctx.inventory_counts(), ctx.write_diskettes,
+                             ctx.project_story)
     for line in changed:
         logger.debug("grant: %s", line)
 
