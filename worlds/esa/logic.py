@@ -26,8 +26,6 @@ DROPPED_TOKENS = frozenset({"poweroff", "growthoff", "growthon", "mender"})
 
 # Node 121 "Derelict 5" is an orphan
 SKIPPED_NODES = frozenset({"121"})
-# classa is still unmapped
-FREE_TOKENS = frozenset({"classa"})
 
 FLAG_TOKEN_EVENTS = {
     "switch": "Propeller Room Switch",
