@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from typing import Any
 from worlds.AutoWorld import World
 
-from . import items, locations, logic, regions, rules, web_world
+from . import items, locations, regions, logic, rules, web_world
 from . import options as esa_options
 
 #Start world class
