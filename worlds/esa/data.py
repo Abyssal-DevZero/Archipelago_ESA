@@ -64,6 +64,7 @@ MONITOR_INDEX = {
     "Pillar 2": 46,
     "Pillar 3": 47,
     "Pillar 4": 48,
+    "Password": 50,
 }
 
 FILLER_ITEM_NAME = "Data Fragment"
@@ -136,6 +137,7 @@ LOCATION_NAME_TO_ID = {
     "Pillar 2 Monitor": 67,
     "Pillar 3 Monitor": 68,
     "Pillar 4 Monitor": 69,
+    "Password Monitor": 70,
 }
 
 ID_TO_LOCATION = {loc_id: name for name, loc_id in LOCATION_NAME_TO_ID.items()}
@@ -180,12 +182,12 @@ LOCATION_FLAG = {
     "Diskette SandBot Spot":    (4, 9),
     "Diskette FireTop Spot":    (4, 10),
     "Diskette Ship Spot":       (4, 11),
-    # boss keys (lisa).  Redirected - read out of shadow slot 17.
+    # Keys
     "Key Mwyah Spot":  (5, 38),
     "Key Fire Spot":   (5, 39),
     "Key Caves Spot":  (5, 40),
     "Key Temple Spot": (5, 41),
-    # text monitors (lisa).  Redirected - read out of shadow slot 17.
+    # text monitors
     "Power Monitor":      (5, 8),
     "Gate Alpha Monitor": (5, 18),
     "Gate Beta Monitor":  (5, 19),
@@ -195,8 +197,11 @@ LOCATION_FLAG = {
     "Pillar 2 Monitor":   (5, 33),
     "Pillar 3 Monitor":   (5, 34),
     "Pillar 4 Monitor":   (5, 35),
+    # password monitor (mark)
+    "Password Monitor":   (8, 2),
 }
 
+# Locations whose check is still read from the real flag, so a save that already has it set sends it on connect
 COUPLED_LOCATIONS = set()
 
 # Because it would be too simple to switch between 0 and 1
@@ -222,7 +227,7 @@ ABILITY_FLAG = {
     "Teleport Access":     (5, 24, "1"),
 }
 
-# Monitor items.  All nine writes are redirected into the shadow (see the grant_only entries in memory.py), so the game can no longer set these itself and the client owns them outright.
+# Monitor items (Things getting activated by interacting with various monitors)
 MONITOR_FLAG = {
     "Power":      (5, 0x08, "1"),
     "Gate Alpha": (5, 0x12, "1"),
@@ -233,6 +238,7 @@ MONITOR_FLAG = {
     "Pillar 2":   (5, 0x21, "1"),
     "Pillar 3":   (5, 0x22, "1"),
     "Pillar 4":   (5, 0x23, "1"),
+    "Password":   (8, 2, "1"),
 }
 
 # Hidden Keys
