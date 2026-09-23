@@ -1,9 +1,8 @@
 """Turns the parsed logic expressions into rule_builder rules.
 
-Every requirement in ESA's logic is an edge requirement, so there are no
-location rules here at all: a location is reachable exactly when its node's
-region is
+Graph based logic, every requirement in ESA's logic is an edge requirement. a location is reachable exactly when its node's region is
 """
+
 from __future__ import annotations
 
 from functools import reduce
@@ -19,6 +18,9 @@ if TYPE_CHECKING:
 
 # One entry per token the ini can put on an edge.
 
+def _health(count: int) -> Rule:
+    return HasGroupUnique("Health Packs", count=count)
+
 TOKEN_RULES: dict[str, Rule] = {
     "jump": Has("Jump Booster"),
     "hook": Has("Hookshot"),
@@ -26,7 +28,7 @@ TOKEN_RULES: dict[str, Rule] = {
     "hdash": Has("Dash Booster H"),
     "xdash": Has("Dash Booster X"),
     "bike": Has("The Bike"),
-    "charge": Has("Charge Shot"),
+    "charge": Has("Charge Shot") | Has("Supercharge Module"),
     "gold": Has("Gold Keycard"),
     "heatsuit": Has("Heat-Resistant Suit"),
     "propeller": Has("Propeller"),
@@ -35,16 +37,17 @@ TOKEN_RULES: dict[str, Rule] = {
     "jumporhook": Has("Jump Booster") | Has("Hookshot"),
     "xv": HasAll("Dash Booster V", "Dash Booster X"),
     "xh": HasAll("Dash Booster H", "Dash Booster X"),
-    "attack": Has("Charge Shot"),
+    "attack": Has("Charge Shot") | Has("Supercharge Module") | Has("Plasma Shield") | Has("The Bike"),
     "supercharge": Has("Supercharge Module"),
-    "switch": Has("Propeller"),
+    "switch": Has(logic.FLAG_TOKEN_EVENTS["switch"]),
     "poweron": Has("Power"),
+    "password": Has("Password"),
     "gates": HasGroupUnique("Gates", count=4),
     "pillars": HasGroupUnique("Pillars", count=4),
     "disks": HasGroupUnique("Diskettes", count=12),
-    "lavaswim1": HasGroupUnique("Health Packs", count=logic.DAMAGE_BOOST_HEALTH_PACKS),
-    "lavaswim2": HasGroupUnique("Health Packs", count=logic.DAMAGE_BOOST_HEALTH_PACKS),
-    "acidswim": HasGroupUnique("Health Packs", count=logic.DAMAGE_BOOST_HEALTH_PACKS),
+    "lavaswim1": (_health(4) & (Has("Propeller") | Has("The Bike"))) | _health(6),
+    "lavaswim2": (_health(4) & Has("Propeller")) | (_health(2) & Has("The Bike")),
+    "acidswim": (_health(4) & Has("Propeller")) | _health(6),
 }
  
 TELEPORT_ACCESS = Has("Teleport Access")
@@ -71,7 +74,7 @@ def rule_for_edge(edge: logic.Edge) -> Rule | None:
 
 def set_all_rules(world: ESAWorld) -> None:
     set_all_entrance_rules(world)
-    set_completion_condition(world)
+    set_completion_rule(world)
 
 def set_all_entrance_rules(world: ESAWorld) -> None:
     for edge in logic.EDGES:
@@ -90,11 +93,11 @@ def set_all_entrance_rules(world: ESAWorld) -> None:
             TELEPORT_ACCESS & Has(logic.TELEPORT_EVENTS[pad_id]),
         )
 
-def set_completion_condition(world: ESAWorld) -> None:
+def set_completion_rule(world: ESAWorld) -> None:
     beat_the_mainframe = CanReachRegion(logic.NODES[AI_MAINFRAME_NODE].region)
  
     if world.options.goal == Goal.option_postgame:
         # Setting goal to four pillars for now even tho it should include beating Mwyah
-        world.set_completion_condition(beat_the_mainframe & HasGroupUnique("Pillars", count=4))
+        world.set_completion_rule(beat_the_mainframe & HasGroupUnique("Pillars", count=4))
     else:
-        world.set_completion_condition(beat_the_mainframe)
+        world.set_completion_rule(beat_the_mainframe)
