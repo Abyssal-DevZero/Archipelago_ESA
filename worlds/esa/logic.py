@@ -89,7 +89,6 @@ ITEM_INDEX_TO_LOCATION = {
     48: "Pillar 4 Monitor",
 }
 
-
 @dataclass(frozen=True)
 class Node:
     """One node of the ini graph, which becomes one AP Region."""
@@ -99,7 +98,6 @@ class Node:
     region: str
     item_index: int | None
     location: str | None
-
 
 @dataclass(frozen=True)
 class Edge:
@@ -117,7 +115,6 @@ class Edge:
     def is_free(self) -> bool:
         return any(not term for term in self.terms)
 
-
 def _read_ini() -> str:
     raw = pkgutil.get_data(__name__, INI_RESOURCE)
     if raw is None:
@@ -125,7 +122,6 @@ def _read_ini() -> str:
             f"{INI_RESOURCE} is missing from the ESA apworld. The logic graph is parsed from it at import time, so the world cannot load without it."
         )
     return raw.decode("utf-8", errors="ignore")
-
 
 def _parse_expression(expression: str) -> tuple[frozenset[str], ...]:
     """Turn 'jump&hook|vdash' into ((jump, hook), (vdash,)).
@@ -143,11 +139,9 @@ def _parse_expression(expression: str) -> tuple[frozenset[str], ...]:
             terms.append(term)
     return tuple(terms)
 
-
 def _region_name(node_id: str, name: str) -> str:
     """Region names must be unique and stable; ini names are neither on their own."""
     return f"{name} ({node_id})"
-
 
 class _Graph:
     def __init__(self) -> None:
@@ -267,7 +261,6 @@ class _Graph:
             digest.update(f"grant {token}>{node_id}\n".encode())
         return digest.hexdigest()[:16]
 
-
 _GRAPH = _Graph()
 
 NODES: dict[str, Node] = _GRAPH.nodes
@@ -293,7 +286,6 @@ TELEPORT_EVENTS: dict[str, str] = {
 ALL_TOKENS: frozenset[str] = frozenset(
     token for edge in EDGES for term in edge.terms for token in term
 )
-
 
 def _validate() -> None:
     """Fail at import rather than halfway through generation."""
