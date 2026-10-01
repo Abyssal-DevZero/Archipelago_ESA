@@ -10,7 +10,7 @@ import unittest
 from .. import logic
 from ..rules import TOKEN_RULES
 
-EXPECTED_FINGERPRINT = "5afceee97fb2dd0a"
+EXPECTED_FINGERPRINT = "b4d921cc8e65be60"
 EXPECTED_NODES = 121
 EXPECTED_EDGES = 272
 EXPECTED_LOCATIONS = 49
@@ -48,7 +48,7 @@ class TestLogicGraph(unittest.TestCase):
  
     def test_flag_tokens_are_real_items(self) -> None:
         """A mapped flag token is granted by exactly one node, and has a rule on every edge that uses it."""
-        self.assertEqual({"password": "116", "switch": "3"}, logic.FLAG_GRANTS)
+        self.assertEqual({"password": "116", "switch": "3", "classa": "115"}, logic.FLAG_GRANTS)
         for token in (*logic.FLAG_TOKEN_LOCATIONS, *logic.FLAG_TOKEN_EVENTS):
             self.assertIn(token, logic.ALL_TOKENS, f"{token} gates nothing, so its item would be dead weight")
             self.assertIn(token, TOKEN_RULES)
@@ -66,6 +66,14 @@ class TestLogicGraph(unittest.TestCase):
     def test_password_gates_derelict(self) -> None:
         edge = next(e for e in logic.EDGES if (e.source, e.target) == ("119", "120"))
         self.assertIn(frozenset({"hook", "jumporv", "password"}), edge.terms)
+
+    def test_classa_gates_the_mainframe_shortcut(self) -> None:
+        """Class A is an event on its own node, and the Mainframe tp shortcut needs it."""
+        self.assertEqual("115", logic.FLAG_GRANTS["classa"])
+        self.assertNotIn("classa", logic.FLAG_TOKEN_LOCATIONS)
+        self.assertNotIn("classa", logic.FREE_TOKENS)
+        edge = next(e for e in logic.EDGES if (e.source, e.target) == ("54", "85"))
+        self.assertIn(frozenset({"classa", "xv"}), edge.terms)
 
     def test_doors_are_free(self) -> None:
         """The 21 room transitions carry no requirement, 42 edges in total."""
@@ -118,6 +126,6 @@ class TestReachability(unittest.TestCase):
             self.assertIn(node, self._reachable(without=frozenset({token})), token)
 
     def test_goal_region_reachable(self) -> None:
-        from ..rules import AI_MAINFRAME_NODE
+        from ..rules import CLASS_A_NODE
  
-        self.assertIn(AI_MAINFRAME_NODE, self._reachable())
+        self.assertIn(CLASS_A_NODE, self._reachable())
