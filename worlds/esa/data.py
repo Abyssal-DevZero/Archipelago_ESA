@@ -7,7 +7,6 @@ from __future__ import annotations
 BASE_ID = 0x0E5A00
 FILLER_BASE = BASE_ID + 100
 
-#TO-DO: Monitors, Keys, Crown
 ITEMDATA_INDEX = {
     "Jump Booster": 0,
     "Hookshot": 1,
@@ -46,9 +45,32 @@ ITEMDATA_INDEX = {
     "Diskette Ship": 34,
 }
 
-FILLER_ITEM_NAME = "Data Fragment"
+KEY_INDEX = {
+    "Key Mwyah": 35,
+    "Key Fire": 36,
+    "Key Caves": 37,
+    "Key Temple": 38,
+}
 
-ITEM_NAME_TO_ID = {name: BASE_ID + index for name, index in ITEMDATA_INDEX.items()}
+CROWN_INDEX = {"CROWN": 39}
+
+MONITOR_INDEX = {
+    "Power": 40,
+    "Gate Alpha": 41,
+    "Gate Beta": 42,
+    "Gate Gamma": 43,
+    "Gate Delta": 44,
+    "Pillar 1": 45,
+    "Pillar 2": 46,
+    "Pillar 3": 47,
+    "Pillar 4": 48,
+    "Password": 50,
+}
+
+FILLER_ITEM_NAME = "Data Fragment"
+ALL_ITEM_INDEX = {**ITEMDATA_INDEX, **KEY_INDEX, **CROWN_INDEX, **MONITOR_INDEX}
+
+ITEM_NAME_TO_ID = {name: BASE_ID + index for name, index in ALL_ITEM_INDEX.items()}
 ITEM_NAME_TO_ID[FILLER_ITEM_NAME] = FILLER_BASE + 0
 
 ITEM_ID_TO_NAME = {item_id: name for name, item_id in ITEM_NAME_TO_ID.items()}
@@ -56,6 +78,8 @@ ITEM_ID_TO_NAME = {item_id: name for name, item_id in ITEM_NAME_TO_ID.items()}
 ABILITIES = [name for name, i in ITEMDATA_INDEX.items() if i <= 14]
 HEALTH_PACKS = [name for name, i in ITEMDATA_INDEX.items() if 15 <= i <= 22]
 DISKETTES = [name for name, i in ITEMDATA_INDEX.items() if 23 <= i <= 34]
+KEYS = list(KEY_INDEX)
+MONITORS = list(MONITOR_INDEX)
 
 #==locations==
 LOCATION_NAME_TO_ID = {
@@ -96,6 +120,24 @@ LOCATION_NAME_TO_ID = {
     "Diskette SandBot Spot": 40,
     "Diskette SandMid Spot": 41,
     "Diskette Ship Spot": 42,
+
+    # boss keys
+    "Key Mwyah Spot": 51,
+    "Key Fire Spot": 52,
+    "Key Caves Spot": 53,
+    "Key Temple Spot": 54,
+
+    # text monitor
+    "Power Monitor": 61,
+    "Gate Alpha Monitor": 62,
+    "Gate Beta Monitor": 63,
+    "Gate Gamma Monitor": 64,
+    "Gate Delta Monitor": 65,
+    "Pillar 1 Monitor": 66,
+    "Pillar 2 Monitor": 67,
+    "Pillar 3 Monitor": 68,
+    "Pillar 4 Monitor": 69,
+    "Password Monitor": 70,
 }
 
 ID_TO_LOCATION = {loc_id: name for name, loc_id in LOCATION_NAME_TO_ID.items()}
@@ -140,7 +182,27 @@ LOCATION_FLAG = {
     "Diskette SandBot Spot":    (4, 9),
     "Diskette FireTop Spot":    (4, 10),
     "Diskette Ship Spot":       (4, 11),
+    # Keys
+    "Key Mwyah Spot":  (5, 38),
+    "Key Fire Spot":   (5, 39),
+    "Key Caves Spot":  (5, 40),
+    "Key Temple Spot": (5, 41),
+    # text monitors
+    "Power Monitor":      (5, 8),
+    "Gate Alpha Monitor": (5, 18),
+    "Gate Beta Monitor":  (5, 19),
+    "Gate Gamma Monitor": (5, 20),
+    "Gate Delta Monitor": (5, 21),
+    "Pillar 1 Monitor":   (5, 32),
+    "Pillar 2 Monitor":   (5, 33),
+    "Pillar 3 Monitor":   (5, 34),
+    "Pillar 4 Monitor":   (5, 35),
+    # password monitor (mark)
+    "Password Monitor":   (8, 2),
 }
+
+# Locations whose check is still read from the real flag, so a save that already has it set sends it on connect
+COUPLED_LOCATIONS = set()
 
 # Because it would be too simple to switch between 0 and 1
 CHECK_CHAR = {"Bike Spot": "B"}
@@ -164,6 +226,31 @@ ABILITY_FLAG = {
     "Dash Booster X":      (5, 2, "1"),
     "Teleport Access":     (5, 24, "1"),
 }
+
+# Monitor items (Things getting activated by interacting with various monitors)
+MONITOR_FLAG = {
+    "Power":      (5, 0x08, "1"),
+    "Gate Alpha": (5, 0x12, "1"),
+    "Gate Beta":  (5, 0x13, "1"),
+    "Gate Gamma": (5, 0x14, "1"),
+    "Gate Delta": (5, 0x15, "1"),
+    "Pillar 1":   (5, 0x20, "1"),
+    "Pillar 2":   (5, 0x21, "1"),
+    "Pillar 3":   (5, 0x22, "1"),
+    "Pillar 4":   (5, 0x23, "1"),
+    "Password":   (8, 2, "1"),
+}
+
+# Hidden Keys
+KEY_FLAG = {
+    "Key Mwyah":  (5, 0x26, "1"),
+    "Key Fire":   (5, 0x27, "1"),
+    "Key Caves":  (5, 0x28, "1"),
+    "Key Temple": (5, 0x29, "1"),
+}
+
+# everything push_inventory projects onto a real slot, character included
+GRANT_FLAG = {**ABILITY_FLAG, **MONITOR_FLAG, **KEY_FLAG}
 
 DISKETTE_INDEX = {
     "Diskette Water": 0, "Diskette Depthsmaze": 1, "Diskette Caves": 2,

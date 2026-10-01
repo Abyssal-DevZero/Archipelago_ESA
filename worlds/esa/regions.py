@@ -1,108 +1,53 @@
+"""Builds one Region per logic node, plus the teleporter hub.
+
+Entrances are created here without rules; rules.py attaches them afterwards by
+entrance name, which is why edge names have to be unique and stable
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from BaseClasses import Entrance, Region
+from BaseClasses import Region
 
-from .options import Goal
+from . import logic
 
 if TYPE_CHECKING:
     from .world import ESAWorld
 
-# TODO: Post-Game regions
-#       Double Check region connections
 
 def create_and_connect_regions(world: ESAWorld) -> None:
     create_all_regions(world)
     connect_regions(world)
 
-# Regions and connections derived from https://environmental-station-alpha.fandom.com/wiki/Station_Map
-# Post-Game regions currently commented as they are no part of the AP rando yet
+
 def create_all_regions(world: ESAWorld) -> None:
-    cave_complex = Region("Cave_Complex", world.player, world.multiworld)
-    depths = Region("The Depths", world.player, world.multiworld)
-    volcanic_sector = Region("The Volcanic Sector", world.player, world.multiworld)
-    underwater_sector = Region("The Underwater Sector", world.player, world.multiworld)
-    sandrock_sector = Region("The Sandrock Sector", world.player, world.multiworld)
-    jungle_sector = Region("The Jungle Sector", world.player, world.multiworld)
-    temple = Region("The Temple", world.player, world.multiworld)
-    derelict_ship = Region("The Derelict Ship", world.player, world.multiworld)
-    control_hub = Region("The Control Hub", world.player, world.multiworld)
-    ai_mainframe = Region("The A.I. Mainframe", world.player, world.multiworld)
+    for region_name in logic.REGION_NAMES:
+        world.multiworld.regions.append(Region(region_name, world.player, world.multiworld))
 
-    regions = [cave_complex, depths, volcanic_sector, underwater_sector, sandrock_sector, jungle_sector, temple, derelict_ship, control_hub, ai_mainframe]
-
-    # For now only supports Mywah aka Forlorn Planet
-    if world.options.goal == Goal.option_postgame:
-        regions.append(Region("The Forlorn Planet", world.player, world.multiworld))
-    world.multiworld.regions += regions
+    world.multiworld.regions.append(
+        Region(logic.TELEPORT_HUB_REGION, world.player, world.multiworld)
+    )
 
 
 def connect_regions(world: ESAWorld) -> None:
-    cave_complex = world.get_region("Cave_Complex")
-    depths = world.get_region("The Depths")
-    volcanic_sector = world.get_region("The Volcanic Sector")
-    underwater_sector = world.get_region("The Underwater Sector")
-    sandrock_sector = world.get_region("The Sandrock Sector")
-    jungle_sector = world.get_region("The Jungle Sector")
-    temple = world.get_region("The Temple")
-    derelict_ship = world.get_region("The Derelict Ship")
-    control_hub = world.get_region("The Control Hub")
-    ai_mainframe = world.get_region("The A.I. Mainframe")
+    for edge in logic.EDGES:
+        source = world.get_region(logic.NODES[edge.source].region)
+        target = world.get_region(logic.NODES[edge.target].region)
+        source.connect(target, edge.name)
 
-    # Also derived from https://environmental-station-alpha.fandom.com/wiki/Station_Map and the respective Areas
-    # Cave Complex
-    cave_complex.connect(depths, "Cave Complex to Depths")
-    cave_complex.connect(sandrock_sector, "Cave Complex to Sandrock Sector")
-    cave_complex.connect(underwater_sector, "Cave Complex to Underwater Sector")
-    cave_complex.connect(jungle_sector, "Cave Complex to Jungle Sector")
-    cave_complex.connect(ai_mainframe, "Cave Complex to A.I. Mainframe")
-    cave_complex.connect(derelict_ship, "Cave Complex to Derelict Ship")
+    connect_teleport_network(world)
 
-    #Depths
-    depths.connect(cave_complex, "Depths to Cave_Complex")
-    depths.connect(volcanic_sector, "The Depths to Volcanic Sector")
-    depths.connect(control_hub, "Depths to Control Hub")
-    depths.connect(sandrock_sector, "Depths to Sandrock Sector")
 
-    #Volcanic Sector
-    volcanic_sector.connect(depths, "Volcanic Sector to Depths")
-    volcanic_sector.connect(ai_mainframe, "Volcanic Sector to AI Mainframe")
-    volcanic_sector.connect(temple, "Volcanic Sector to Temple")
+def connect_teleport_network(world: ESAWorld) -> None:
+    """Every teleporter leads into the hub; the hub leads back out to any teleporter already found.
 
-    #Underwater Sector
-    underwater_sector.connect(cave_complex, "Underwater Sector to Cave_Complex")
-    underwater_sector.connect(sandrock_sector, "Underwater Sector to Sandrock Sector")
+    Without this, Sandrock tp and the Diskette behind it are unreachable with a
+    full inventory, because nothing else leads there
+    """
+    hub = world.get_region(logic.TELEPORT_HUB_REGION)
 
-    #Sandrock Sector
-    sandrock_sector.connect(cave_complex, "Sandrock Sector to Cave_Complex")
-    sandrock_sector.connect(depths, "Sandrock Sector to Depths")
-    sandrock_sector.connect(control_hub, "Sandrock Sector to Control Hub")
-    sandrock_sector.connect(underwater_sector, "Sandrock Sector to Underwater Sector")
-
-    #Jungle Sector
-    jungle_sector.connect(cave_complex, "Jungle Sector to Cave_Complex")
-    jungle_sector.connect(ai_mainframe, "Jungle Sector to AI Mainframe")
-    jungle_sector.connect(temple, "Jungle Sector to Temple")
-
-    #Temple
-    temple.connect(ai_mainframe, "Temple to AI Mainframe")
-    temple.connect(volcanic_sector, "Temple to Volcanic Sector")
-    temple.connect(jungle_sector, "Temple to Jungle Sector")
-
-    #Derelict Ship
-    derelict_ship.connect(cave_complex, "Derelict Ship to Cave_Complex")
-
-    #Control Hub
-    control_hub.connect(depths, "Control Hub to Depths")
-    control_hub.connect(sandrock_sector, "Control Hub to Sandrock Sector")
-
-    #A.I. Mainframe
-    ai_mainframe.connect(cave_complex, "AI Mainframe to Cave_Complex")
-    ai_mainframe.connect(volcanic_sector, "AI Mainframe to Volcanic Sector")
-    ai_mainframe.connect(jungle_sector, "AI Mainframe to Jungle Sector")
-    ai_mainframe.connect(temple, "AI Mainframe to Temple")
-
-    if world.options.goal == Goal.option_postgame:
-        forlorn_planet = world.get_region("The Forlorn Planet")
-        ai_mainframe.connect(forlorn_planet, "A.I. Mainframe to Forlorn Planet")
+    for pad_node in logic.TELEPORT_PADS.values():
+        pad = world.get_region(logic.NODES[pad_node].region)
+        pad.connect(hub, f"{pad.name} -> {hub.name}")
+        hub.connect(pad, f"{hub.name} -> {pad.name}")
