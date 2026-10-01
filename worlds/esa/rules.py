@@ -8,7 +8,7 @@ from __future__ import annotations
 from functools import reduce
 from typing import TYPE_CHECKING
 
-from rule_builder.rules import CanReachRegion, Has, HasAll, HasGroupUnique, Rule
+from rule_builder.rules import Has, HasAll, HasGroupUnique, Rule
 
 from . import logic
 from .options import Goal
@@ -40,6 +40,7 @@ TOKEN_RULES: dict[str, Rule] = {
     "attack": Has("Charge Shot") | Has("Supercharge Module") | Has("Plasma Shield") | Has("The Bike"),
     "supercharge": Has("Supercharge Module"),
     "switch": Has(logic.FLAG_TOKEN_EVENTS["switch"]),
+    "classa": Has(logic.FLAG_TOKEN_EVENTS["classa"]),
     "poweron": Has("Power"),
     "password": Has("Password"),
     "gates": HasGroupUnique("Gates", count=4),
@@ -95,15 +96,15 @@ def set_all_entrance_rules(world: ESAWorld) -> None:
         )
 
 def set_completion_rule(world: ESAWorld) -> None:
-    # First ending: Power restored, all four gates open, and Class A reachable.
+    # First ending: Defeat Virus
     base_game = (
         Has("Power")
         & HasGroupUnique("Gates", count=4)
-        & CanReachRegion(logic.NODES[CLASS_A_NODE].region)
+        & Has(logic.FLAG_TOKEN_EVENTS["classa"])
     )
 
     if world.options.goal == Goal.option_postgame:
-        # TODO: still a placeholder. Mwyah has no node in the ini yet.
+        # Second Ending: Defeat Mwyah
         world.set_completion_rule(base_game & HasGroupUnique("Pillars", count=4))
     else:
         world.set_completion_rule(base_game)
