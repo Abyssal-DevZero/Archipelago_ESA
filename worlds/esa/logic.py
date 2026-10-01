@@ -2,9 +2,6 @@
 
 The ini is the specification for ESA's logic. Every edge in it says what it
 takes to get from one node to the next
-
-This module is pure data 
-Token meanings live in rules.py, because only that module needs rule_builder.
 """
 
 from __future__ import annotations
@@ -26,9 +23,11 @@ DROPPED_TOKENS = frozenset({"poweroff", "growthoff", "growthon", "mender"})
 
 # Node 121 "Derelict 5" is an orphan
 SKIPPED_NODES = frozenset({"121"})
+FREE_TOKENS: frozenset[str] = frozenset()
 
 FLAG_TOKEN_EVENTS = {
     "switch": "Propeller Room Switch",
+    "classa": "Class A Unlocked",
 }
 # Tokens a node grants by being reached (the ini writes them as `<token>="1"` on the node, exactly like teleportfind)
 FLAG_TOKEN_LOCATIONS = {
