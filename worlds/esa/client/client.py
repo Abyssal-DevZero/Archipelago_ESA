@@ -35,6 +35,7 @@ from ..data import (
 )
 
 POLL_INTERVAL = 0.2
+ACCESS_LEVEL_2 = (5, 3, "1") #Kinda emergency fix for making seeds with early power from other worlds viable
 
 _READ_MAP_CACHE: dict[tuple, dict] = {}
 
@@ -196,7 +197,16 @@ def push_inventory(att, counts: dict[str, int], write_diskettes: bool,
                         f"{want_hp:g}, read back {back:g}) — leaving it alone. "
                         f"The counter write above is the one that matters.")
     return changed
-
+#Temporary function to grant access level 2                      
+def grant_access_level(att) -> str | None:
+    """Flip Access Level 2 on."""
+    slot, index, char = ACCESS_LEVEL_2
+    cur = att.read(slot)
+    if cur is None or index >= len(cur) or cur[index] != "0":
+        return None
+    if att.write_char(slot, index, char):
+        return f"{SLOTS[slot][0]}[{index}] 0 -> {char}"
+    return None
 # APClient
 
 class ESACommandProcessor(ClientCommandProcessor):
@@ -427,6 +437,10 @@ async def game_watcher(ctx: ESAContext):
         if ctx.state != READY:
             announced_ready = False     # re-announce after a re-attach
             continue
+
+        line = grant_access_level(ctx.att) #applying access
+        if line:
+            logger.debug("grant: Access Level 2, %s", line)
 
         if not ctx.server or ctx.slot is None:
             announced_ready = False
