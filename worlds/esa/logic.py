@@ -1,7 +1,5 @@
 """Parses glitchlesslogic.ini into a node graph at import time.
-
-The ini is the specification for ESA's logic. Every edge in it says what it
-takes to get from one node to the next
+The ini is the specification for ESA's logic. Every edge in it says what it takes to get from one node to the next
 """
 
 from __future__ import annotations
@@ -36,7 +34,13 @@ FLAG_TOKEN_LOCATIONS = {
 
 TELEPORT_HUB_REGION = "Teleport Network"
 
-# The ini's item index is also its node id. Location names do not always match item names ("The Bike" lives at "Bike Spot"), so the mapping is explicit and checked against data.py at import.
+# Edges where the ini gets adjusted for Archipelago: (source, target) -> replacement expression.
+EDGE_OVERRIDES = {
+    # Jungle 1 -> Deep Jungle tp. ini: "jump&hook|vdash&charge" (This change attempts at moving the teleportaccess outside of the jungle, making it much harder to softlock oneself out of the jungle and temple)
+    ("114", "49"): "jump&hook&tpaccess&poweron&hdash&charge|vdash&tpaccess&poweron&hdash&charge",
+}
+
+# The logic ini's item index is also its node id. Location names do not always match item names ("The Bike" lives at "Bike Spot"), so the mapping is explicit and checked against data.py at import.
 # TODO: Index 39 (CROWN) is not implemented yet as the crown has some... unique coding attached to it
 ITEM_INDEX_TO_LOCATION = {
     0: "Jump Booster Spot",
@@ -226,7 +230,12 @@ class _Graph:
                 target = target.strip()
                 if not target or target not in self.nodes:
                     continue
-                self._add_edge(node_id, target, _parse_expression(fields.get(target, "nothing")))
+                expression = EDGE_OVERRIDES.get((node_id, target), fields.get(target, "nothing"))    #Include logic overrides
+                self._add_edge(node_id, target, _parse_expression(expression))
+        built = {(edge.source, edge.target) for edge in self.edges}
+        stale = set(EDGE_OVERRIDES) - built
+        if stale:
+            raise ValueError(f"EDGE_OVERRIDES names edges the ini does not build: {sorted(stale)}")
 
     def _build_doors(self, sections: dict[str, dict[str, str]]) -> None:
         doors: dict[str, dict[str, str]] = {}
