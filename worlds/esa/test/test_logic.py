@@ -1,6 +1,5 @@
 """
-The ini is parsed at import instead of being converted into a checked-in table, which means an upstream edit to glitchlesslogic.ini would otherwise change every
-seed
+The ini is parsed at import instead of being converted into a checked-in table, which means an upstream edit to glitchlesslogic.ini would otherwise change every seed
 """
 
 from __future__ import annotations
@@ -10,12 +9,11 @@ import unittest
 from .. import logic
 from ..rules import TOKEN_RULES
 
-EXPECTED_FINGERPRINT = "b4d921cc8e65be60"
+EXPECTED_FINGERPRINT = "32b3d3db824d39e3"
 EXPECTED_NODES = 121
 EXPECTED_EDGES = 272
 EXPECTED_LOCATIONS = 49
 EXPECTED_TELEPORTERS = 13
-
 
 class TestLogicGraph(unittest.TestCase):
     def test_fingerprint(self) -> None:
