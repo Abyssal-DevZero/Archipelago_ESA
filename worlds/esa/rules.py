@@ -38,6 +38,7 @@ TOKEN_RULES: dict[str, Rule] = {
     "xv": HasAll("Dash Booster V", "Dash Booster X"),
     "xh": HasAll("Dash Booster H", "Dash Booster X"),
     "attack": Has("Charge Shot") | Has("Supercharge Module") | Has("Plasma Shield") | Has("The Bike"),
+    "tpaccess": Has("Teleport Access"),
     "supercharge": Has("Supercharge Module"),
     "switch": Has(logic.FLAG_TOKEN_EVENTS["switch"]),
     "classa": Has(logic.FLAG_TOKEN_EVENTS["classa"]),
@@ -54,6 +55,17 @@ TOKEN_RULES: dict[str, Rule] = {
 TELEPORT_ACCESS = Has("Teleport Access")
 AI_MAINFRAME_NODE = "116"
 CLASS_A_NODE = "115"
+
+BIKE_SPOT = "Bike Spot"
+DASH_BOOSTERS = ("Dash Booster H", "Dash Booster V", "Dash Booster X")
+ 
+def first_ending() -> Rule:
+    """Defeat the virus: Power, all four Gates, and Class A unlocked."""
+    return (
+        Has("Power")
+        & HasGroupUnique("Gates", count=4)
+        & Has(logic.FLAG_TOKEN_EVENTS["classa"])
+    )
 
 def rule_for_term(term: frozenset[str]) -> Rule | None:
     """AND the tokens of one product together. An empty product is free passage."""
@@ -77,6 +89,7 @@ def rule_for_edge(edge: logic.Edge) -> Rule | None:
 def set_all_rules(world: ESAWorld) -> None:
     set_all_entrance_rules(world)
     set_completion_rule(world)
+    set_bike_spot_rule(world)
 
 def set_all_entrance_rules(world: ESAWorld) -> None:
     for edge in logic.EDGES:
@@ -94,17 +107,23 @@ def set_all_entrance_rules(world: ESAWorld) -> None:
             world.get_entrance(f"{logic.TELEPORT_HUB_REGION} -> {pad_region}"),
             TELEPORT_ACCESS & Has(logic.TELEPORT_EVENTS[pad_id]),
         )
+        
+def set_bike_spot_rule(world: ESAWorld) -> None:
+    """Excluding the bike from having any advancement items when picking the normal final_boss ending
+    """
+    location = world.get_location(BIKE_SPOT)
+    world.set_rule(location, first_ending())
+    if world.options.goal != Goal.option_postgame:
+        location.item_rule = lambda item: not item.advancement
 
 def set_completion_rule(world: ESAWorld) -> None:
-    # First ending: Defeat Virus
-    base_game = (
-        Has("Power")
-        & HasGroupUnique("Gates", count=4)
-        & Has(logic.FLAG_TOKEN_EVENTS["classa"])
-    )
-
     if world.options.goal == Goal.option_postgame:
-        # Second Ending: Defeat Mwyah
-        world.set_completion_rule(base_game & HasGroupUnique("Pillars", count=4))
+        # Second ending: defeat Mwyah. The Dash Boosters are required on top so the randomizer has to put all three in reach before the goal.
+        world.set_completion_rule(
+            first_ending()
+            & HasGroupUnique("Pillars", count=4)
+            & HasAll(*DASH_BOOSTERS)
+        )
     else:
-        world.set_completion_rule(base_game)
+        # First ending: defeat the virus
+        world.set_completion_rule(first_ending())
