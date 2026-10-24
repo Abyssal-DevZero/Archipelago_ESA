@@ -59,7 +59,7 @@ CLASS_A_NODE = "115"
 BIKE_SPOT = "Bike Spot"
 DASH_BOOSTERS = ("Dash Booster H", "Dash Booster V", "Dash Booster X")
  
-def first_ending() -> Rule:
+def base_game() -> Rule:
     """Defeat the virus: Power, all four Gates, and Class A unlocked."""
     return (
         Has("Power")
@@ -112,7 +112,7 @@ def set_bike_spot_rule(world: ESAWorld) -> None:
     """Excluding the bike from having any advancement items when picking the normal final_boss ending
     """
     location = world.get_location(BIKE_SPOT)
-    world.set_rule(location, first_ending())
+    world.set_rule(location, base_game())
     if world.options.goal != Goal.option_postgame:
         location.item_rule = lambda item: not item.advancement
 
@@ -120,10 +120,10 @@ def set_completion_rule(world: ESAWorld) -> None:
     if world.options.goal == Goal.option_postgame:
         # Second ending: defeat Mwyah. The Dash Boosters are required on top so the randomizer has to put all three in reach before the goal.
         world.set_completion_rule(
-            first_ending()
+            base_game()
             & HasGroupUnique("Pillars", count=4)
             & HasAll(*DASH_BOOSTERS)
         )
     else:
         # First ending: defeat the virus
-        world.set_completion_rule(first_ending())
+        world.set_completion_rule(base_game())
