@@ -9,13 +9,13 @@ class Goal(Choice):
     """
     What counts as finishing the seed.
     
-    final_boss: defeat the virus and get the first ending
+    base_game: defeat the virus and get the first ending
     postgame: defeat Mwyah
     """
 
     display_name = "Goal"
-    option_final_boss = 0
-    option_postgame = 1
+    option_base_game = 1
+    option_postgame = 0
     default = 0
 
 class StartWithJumpBooster(DefaultOnToggle):
@@ -30,3 +30,4 @@ class StartWithJumpBooster(DefaultOnToggle):
 class ESAOptions(PerGameCommonOptions):
     goal: Goal
     start_with_jump_booster: StartWithJumpBooster
+    death_link: DeathLink
