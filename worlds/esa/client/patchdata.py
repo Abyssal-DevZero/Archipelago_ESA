@@ -86,7 +86,9 @@ def test_reg8(name: str) -> bytes:
     else:
         raise ValueError(f"unsupported 8-bit register {name!r}")
     return rex + bytes([0x84, 0xC0 | (code << 3) | code])
-
+    
+OWNED_PREFIX = bytes.fromhex("B201488B8F")     # Try at fixing UI bugs, all have the same pattern of "mov dl,1 ; mov rcx,[rdi+disp32]..."
+OWNED_LEN = 9                                   # ...through the end of the disp32 
 
 @dataclass
 class IconFix:
@@ -103,6 +105,25 @@ class IconFix:
     owned_rva: int = None
     owned_expect: bytes = None      # >= 5, no RIP, copied verbatim
     owned_skip: int = None
+    auto_owned: bool = True         # guard icon_rva automatically if it holds the show prologue
+
+    @property
+    def owned_site(self):
+        """(rva, bytes displaced, bytes expected) of the owned guard, or None.
+
+        Automatic: the icon block opens with mov dl,1 ; mov rcx,[rdi+disp32] (9 bytes, position
+        independent). Only the prefix is known up front; the disp32 is read from the game.
+        """
+        if self.owned_rva is not None:
+            return self.owned_rva, len(self.owned_expect), self.owned_expect
+        if (self.auto_owned and self.base_reg == "rdi"
+                and self.show_slot is None and self.guard_rva is None):
+            return self.icon_rva, OWNED_LEN, OWNED_PREFIX
+        return None
+
+    @property
+    def owned_auto(self) -> bool:
+        return self.owned_rva is None and self.owned_site is not None  
 
     @property
     def branch_len(self) -> int:
@@ -260,16 +281,18 @@ class Entry:
             out.append(("icon rescue", fx.branch_rva, fx.branch_len, "icon"))
             if fx.guard_rva is not None:
                 out.append(("destroy guard", fx.guard_rva, len(fx.guard_expect), "guard"))
-            if fx.owned_rva is not None:
-                out.append(("owned guard", fx.owned_rva, len(fx.owned_expect), "owned"))
+            if (owned := fx.owned_site) is not None:
+                out.append(("owned guard", owned[0], owned[1], "owned"))
         return out
 
     def expect_at(self, rva, kind):
         """Bytes the site must hold before patching, or None."""
         if kind == "icon":
             return self.icon.expect
-        if kind in ("guard", "owned"):
-            return getattr(self.icon, kind + "_expect")
+        if kind == "guard":
+            return self.icon.guard_expect
+        if kind == "owned":
+            return self.icon.owned_site[2]
         if kind in ("base", "slot"):
             return self.site_expect.get(rva)
         return SITE_EXPECT.get(self.slot)
