@@ -620,6 +620,7 @@ class Trampolines:
         self.stub_base = self.cursor = self.stub_end = None
         self.saved = {}
         self.installed = set()
+        self.skipped = set()
 
     @staticmethod
     def plan(entries=None):
@@ -666,7 +667,7 @@ class Trampolines:
 
     def state(self, entries=None):
         seen = {self.site_state(rva, e.expect_at(rva, kind))
-                for e, _, rva, _, kind in self.plan(entries)}
+                for e, _, rva, _, kind in self.plan(entries) if rva not in self.skipped}}
         if not seen:
             return "none"
         if len(seen) == 1 and seen <= {"clean", "installed"}:
@@ -705,6 +706,13 @@ class Trampolines:
                 log.error(f"trampolines: ABORT, no confirmed bytes recorded for {where}")
                 return False
             if cur[:len(want)] != want:
+                if kind == "owned" and e.icon.owned_auto:
+                    if rva not in self.skipped:     # a guess, not a confirmed site: skip it alone
+                        log.warning(f"trampolines: {where} is {cur.hex(' ').upper()}, not the show "
+                                    "prologue. No owned guard there; that icon may light on a "
+                                    "checked spot whose item you don't own.")
+                        self.skipped.add(rva)
+                    continue
                 log.error(f"trampolines: ABORT, {where} is {cur[:len(want)].hex(' ').upper()}, "
                           f"expected {want.hex(' ').upper()}. Wrong build, or something else "
                           "already patched it.")
