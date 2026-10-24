@@ -13,7 +13,7 @@ __all__ = [
     "ALL_INDICES", "ENTRIES", "ENTRIES_BY_SLOT", "ENTRY_BY_ID", "Entry", "IconFix",
     "JMP_LEN", "NOP", "REAL_OF", "REAL_SLOTS", "REG64", "RUNTIME_STRINGS",
     "SHADOW_OF", "SLOTS", "STRING_STRIDE", "add_rdx", "mov_edx", "mov_r64_mem",
-    "read_slot_for", "shadow_coverage", "shadow_live", "slot_disp", "test_reg8",
+    "read_slot_for", "select_sites", "shadow_coverage", "shadow_live", "slot_disp", "test_reg8",
 ]
 
 STRING_STRIDE = 0x40
@@ -123,16 +123,18 @@ class IconFix:
         call_at = self.branch_rva + self.branch_len + 2 + len(mov)
         return b"\xB2\x01" + mov + b"\xE8" + struct.pack("<i", self.show_fn - (call_at + 5))
 
-# "first" makes the pedestal-destroy gate read the shadow. "last" leaves it on the real flag, so an item received from AP destroys its own pedestal.
-# To future me: Always keep "first". Kept in for debug purposes
+# Which suppression sites of an entry read the shadow.
+#   first: lowest RVA only (the pedestal-destroy gate on most entries)
+#   last:  highest RVA only
+#   all:   every site
+SUPPRESSION_MODES = ("first", "last", "all")
 SUPPRESSION_MODE = "first"
 
-def select_sites(sites):
-    if len(sites) <= 1 or SUPPRESSION_MODE == "all":
+def select_sites(sites, mode=SUPPRESSION_MODE):
+    if len(sites) <= 1 or mode == "all":
         return list(sites)
     ordered = sorted(sites, key=lambda s: s if isinstance(s, int) else s[0])
-    return [ordered[0] if SUPPRESSION_MODE == "first" else ordered[-1]]
-
+    return [ordered[0] if mode == "first" else ordered[-1]]
 
 def _ints(v, n):
     return isinstance(v, tuple) and len(v) == n and all(isinstance(x, int) for x in v)
@@ -149,6 +151,7 @@ class Entry:
     cave_sites: list = field(default_factory=list)      # (rva, len) add rdx,imm8: CAVE stub
     base_sites: list = field(default_factory=list)      # (rva, len) no add: BASE stub
     nop_sites: list = field(default_factory=list)       # (rva, len) NOPed out in place
+    suppress_mode: str = SUPPRESSION_MODE               # which suppression sites read the shadow
     grant_fn: int = None
     grant_src_rva: int = None
     grant_src_cave: tuple = None    # (rva, len)
@@ -176,7 +179,8 @@ class Entry:
             bad(f"index must be an int, a non-empty tuple of ints or 'computed', got {i!r}")
         if self.grant_only and self.suppression_only:
             bad("grant_only and suppression_only are mutually exclusive")
-
+        if self.suppress_mode not in SUPPRESSION_MODES:
+            bad(f"suppress_mode must be one of {SUPPRESSION_MODES}, got {self.suppress_mode!r}")
         for f in ("suppress_fn", "pedestal", "grant_fn", "grant_src_rva", "grant_slot_rva"):
             v = getattr(self, f)
             if v is not None and not isinstance(v, int):
@@ -242,8 +246,9 @@ class Entry:
     @property
     def detour_sites(self):
         """Sites that need a stub: [(label, rva, bytes_displaced, kind)]."""
-        out = [("suppression", r, c, "cave") for r, c in select_sites(self.cave_sites)]
-        out += [("suppression", r, c, "base") for r, c in select_sites(self.base_sites)]
+        mode = self.suppress_mode
+        out = [("suppression", r, c, "cave") for r, c in select_sites(self.cave_sites, mode)]
+        out += [("suppression", r, c, "base") for r, c in select_sites(self.base_sites, mode)]
         if not self.suppression_only:
             for label, site, kind in (("grant parser source", self.grant_src_cave, "cave"),
                                       ("grant parser source", self.grant_src_base, "base"),
@@ -297,7 +302,7 @@ class Entry:
             return []
         real, sh = add_rdx(slot_disp(self.slot)), add_rdx(slot_disp(self.shadow))
         slot = (mov_edx(self.slot), mov_edx(self.shadow))
-        chosen = select_sites(self.suppress_rvas)
+        chosen = select_sites(self.suppress_rvas, self.suppress_mode)
         out = [("suppression" if len(chosen) == 1 else f"suppression #{n}", r, real, sh)
                for n, r in enumerate(chosen, 1)]
         if self.suppression_only:
@@ -319,7 +324,19 @@ def _monitor_reads(*rvas):
     """add rdx,0x140 (lisa) -> add rdx,0x440 (shadow lisa) at each site, in place."""
     real, shadow = add_rdx(slot_disp(5)), add_rdx(slot_disp(SHADOW_OF[5]))
     return [(rva, real, shadow) for rva in rvas]
-
+    
+def _lisa_inline_read(flag, size1, chars, size2, ptr):
+    """Inlined Mid$(lisa, i, 1) -> shadow lisa (+0x140 -> +0x440), all five struct accesses.
+ 
+    flag:  movzx eax, byte [rcx+0x140]   (inline or heap?)
+    size1: mov r8d, [rcx+0x144]          (heap length)
+    chars: add rcx, 0x141                (inline chars)
+    size2: mov eax, [rcx+0x144]          (heap length, heap path)
+    ptr:   mov rcx, [rcx+0x148]          (heap pointer)
+    """
+    sites = ((flag, "0FB68140{}0000"), (size1, "448B8144{}0000"), (chars, "4881C141{}0000"),
+             (size2, "8B8144{}0000"), (ptr, "488B8948{}0000"))
+    return [(rva, bytes.fromhex(h.format("01")), bytes.fromhex(h.format("04"))) for rva, h in sites]
 
 ENTRIES = [
     # in place
@@ -375,7 +392,8 @@ ENTRIES = [
           grant_src_cave=(0x2F21D1, 12), grant_slot_rva=0x2F2221,
           icon=IconFix(branch_rva=0x2F4FD6, icon_rva=0x2F5033, exit_rva=0x2F50D9)),
     Entry("tavarat5b", "Plasma Shield (2nd suppression)", 2, 5,
-          suppress_fn=0x2F59C0, cave_sites=[(0x2F59E6, 10)], suppression_only=True),
+          suppress_fn=0x2F59C0, cave_sites=[(0x2F59E6, 10)], suppression_only=True,
+          enabled=False),
     Entry("tavarat6", "Triple Shot", 2, 6, suppress_fn=0x2F50F0, pedestal=0x8A48,
           cave_sites=[(0x2F511B, 10), (0x2F5213, 10), (0x2F52AD, 10)], grant_fn=0x2F24A0,
           grant_src_cave=(0x2F2571, 12), grant_slot_rva=0x2F25C1,
@@ -400,6 +418,8 @@ ENTRIES = [
           cave_sites=[(0x2FDA4B, 7), (0x2FDB3B, 7)], grant_fn=0x2F3DE0,
           grant_src_cave=(0x2F3EB1, 12), grant_slot_rva=0x2F3F29,
           icon=IconFix(branch_rva=0x2FDAC3, icon_rva=0x2FDB18, exit_rva=0x2FDBBB)),
+    Entry("bombs0b", "Dash Booster H (room entry)", 1, 0, suppress_fn=0x12B650,
+          cave_sites=[(0x12B6A7, 9)], suppression_only=True),
     Entry("bombs1", "Dash Booster V", 1, 1, suppress_fn=0x2F5350, pedestal=0x93D8,
           cave_sites=[(0x2F537B, 10), (0x2F5476, 10)], grant_fn=0x2F2760,
           grant_src_cave=(0x2F2831, 12), grant_slot_rva=0x2F2881,
@@ -443,6 +463,8 @@ ENTRIES = [
     Entry("lisa21", "Gate Delta", 5, 0x15,
           grant_fn=0x37E890, grant_src_rva=0x37E945, grant_slot_rva=0x37E998,
           disp_sites=_monitor_reads(0x37DB2F, 0x37DD2F, 0x37DF5F)),
+    
+# Pillar state events (fn 39DC60 / 39DFE0 / 39E370 / 39E700): select the pillar object (+0x3EF0)
     Entry("lisa_pillars", "Pillars 1-4", 5, (0x20, 0x21, 0x22, 0x23),
           suppress_fn=0x384E30, pedestal=0xBD78,
           suppress_rvas=[0x384F17],
@@ -452,8 +474,15 @@ ENTRIES = [
               (0x39D792, 0x39D7D2),                             # Pillar 2
               (0x39D8A2, 0x39D8E2),                             # Pillar 3
               (0x39D9B2, 0x39D9F2),                             # Pillar 4
-          ]),
-    Entry("lisa_keys", "Boss Keys", 5, (0x26, 0x27, 0x28, 0x29),
+          ],
+          disp_sites=(
+              _monitor_reads(0x397136, 0x397184, 0x3971D2, 0x397220)        # monitor state, fn 3970A0
+              + _lisa_inline_read(0x39DDD1, 0x39DDEA, 0x39DE28, 0x39DE31, 0x39DE37)   # pillar 1, fn 39DC60
+              + _lisa_inline_read(0x39E166, 0x39E17F, 0x39E1BD, 0x39E1C6, 0x39E1CC)   # pillar 2, fn 39DFE0
+              + _lisa_inline_read(0x39E4F6, 0x39E50F, 0x39E54D, 0x39E556, 0x39E55C)   # pillar 3, fn 39E370
+              + _lisa_inline_read(0x39E886, 0x39E89F, 0x39E8DD, 0x39E8E6, 0x39E8EC)   # pillar 4, fn 39E700
+          )),
+    Entry("lisa_keys", "Four Keys", 5, (0x26, 0x27, 0x28, 0x29),
           suppress_fn=0x301C00, pedestal=0xCFC8, grant_fn=0x301C00,
           disp_sites=[
               # fn 140301C00, no-keys-held branch
@@ -470,6 +499,8 @@ ENTRIES = [
               (0x3027A4, bytes.fromhex("0FB68640010000"), bytes.fromhex("0FB68640040000")),
               (0x3027AF, bytes.fromhex("488D8E41010000"), bytes.fromhex("488D8E41040000")),
               (0x3027B8, bytes.fromhex("488B8E48010000"), bytes.fromhex("488B8E48040000")),
+            # fn 1403028D0, keys-held branch
+              *_monitor_reads(0x30294A),
           ]),
 
     # Password monitor in mark (the one after defeating station AI)
