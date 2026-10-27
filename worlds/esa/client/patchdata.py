@@ -487,24 +487,21 @@ ENTRIES = [
           grant_fn=0x37E890, grant_src_rva=0x37E945, grant_slot_rva=0x37E998,
           disp_sites=_monitor_reads(0x37DB2F, 0x37DD2F, 0x37DF5F)),
     
-# Pillar state events (fn 39DC60 / 39DFE0 / 39E370 / 39E700): select the pillar object (+0x3EF0)
-    Entry("lisa_pillars", "Pillars 1-4", 5, (0x20, 0x21, 0x22, 0x23),
-          suppress_fn=0x384E30, pedestal=0xBD78,
-          suppress_rvas=[0x384F17],
-          grant_fn=0x39D5E0,
-          grant_src_rva=0x39D682, grant_slot_rva=0x39D6C2,      # Pillar 1
-          extra_grants=[
-              (0x39D792, 0x39D7D2),                             # Pillar 2
-              (0x39D8A2, 0x39D8E2),                             # Pillar 3
-              (0x39D9B2, 0x39D9F2),                             # Pillar 4
-          ],
-          disp_sites=(
-              _monitor_reads(0x397136, 0x397184, 0x3971D2, 0x397220)        # monitor state, fn 3970A0
-              + _lisa_inline_read(0x39DDD1, 0x39DDEA, 0x39DE28, 0x39DE31, 0x39DE37)   # pillar 1, fn 39DC60
-              + _lisa_inline_read(0x39E166, 0x39E17F, 0x39E1BD, 0x39E1C6, 0x39E1CC)   # pillar 2, fn 39DFE0
-              + _lisa_inline_read(0x39E4F6, 0x39E50F, 0x39E54D, 0x39E556, 0x39E55C)   # pillar 3, fn 39E370
-              + _lisa_inline_read(0x39E886, 0x39E89F, 0x39E8DD, 0x39E8E6, 0x39E8EC)   # pillar 4, fn 39E700
-          )),
+# Pillar monitors (object +0x3EF0, alterable string = "1".."4")
+Entry("lisa_pillars", "Pillars 1-4", 5, (0x20, 0x21, 0x22, 0x23),
+      grant_fn=0x39D5E0,
+      grant_src_rva=0x39D682, grant_slot_rva=0x39D6C2,      # Pillar 1
+      extra_grants=[
+          (0x39D792, 0x39D7D2),                             # Pillar 2
+          (0x39D8A2, 0x39D8E2),                             # Pillar 3
+          (0x39D9B2, 0x39D9F2),                             # Pillar 4
+      ],
+      disp_sites=(
+          _lisa_inline_read(0x39DDD1, 0x39DDEA, 0x39DE28, 0x39DE31, 0x39DE37)     # monitor 1, fn 39DC60
+          + _lisa_inline_read(0x39E166, 0x39E17F, 0x39E1BD, 0x39E1C6, 0x39E1CC)   # monitor 2, fn 39DFE0
+          + _lisa_inline_read(0x39E4F6, 0x39E50F, 0x39E54D, 0x39E556, 0x39E55C)   # monitor 3, fn 39E370
+          + _lisa_inline_read(0x39E886, 0x39E89F, 0x39E8DD, 0x39E8E6, 0x39E8EC)   # monitor 4, fn 39E700
+      )),
     Entry("lisa_keys", "Four Keys", 5, (0x26, 0x27, 0x28, 0x29),
           suppress_fn=0x301C00, pedestal=0xCFC8, grant_fn=0x301C00,
           disp_sites=[
