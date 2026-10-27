@@ -667,7 +667,7 @@ class Trampolines:
 
     def state(self, entries=None):
         seen = {self.site_state(rva, e.expect_at(rva, kind))
-                for e, _, rva, _, kind in self.plan(entries) if rva not in self.skipped}}
+                for e, _, rva, _, kind in self.plan(entries) if rva not in self.skipped}
         if not seen:
             return "none"
         if len(seen) == 1 and seen <= {"clean", "installed"}:
