@@ -480,7 +480,7 @@ async def poll(ctx: ESAContext):
         await ctx.send_goal()
 
     push_ledger(att, ledger)
-    for line in push_inventory(att, ctx.inventory_counts(), ctx.write_diskettes, ctx.project_story):
+    for line in push_inventory(att, ctx.inventory_counts(), ctx.write_diskettes):
         logger.debug("grant: %s", line)
 
 
