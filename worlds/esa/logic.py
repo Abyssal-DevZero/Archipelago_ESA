@@ -8,6 +8,7 @@ import configparser
 import hashlib
 import pkgutil
 from dataclasses import dataclass
+from itertools import product
 
 from .data import (
     ITEMDATA_INDEX,
@@ -128,20 +129,22 @@ def _read_ini() -> str:
     return raw.decode("utf-8", errors="ignore")
 
 def _parse_expression(expression: str) -> tuple[frozenset[str], ...]:
-    """Turn 'jump&hook|vdash' into ((jump, hook), (vdash,)).
-    '&' binds tighter than '|' and there is no grouping syntax, so every expression is a flat sum of products. Products containing a dropped token are removed, 'nothing' becomes the empty product, meaning free passage.
-    """
-    terms: list[frozenset[str]] = []
-    for product in expression.split("|"):
-        tokens = {token.strip() for token in product.split("&") if token.strip()}
-        if tokens & DROPPED_TOKENS:
-            continue
-        tokens.discard("nothing")
-        tokens -= FREE_TOKENS
-        term = frozenset(tokens)
-        if term not in terms:
-            terms.append(term)
-    return tuple(terms)
+    """'|' binds tighter than '&': 'jump|hook&vdash|xv' == (jump|hook) & (vdash|xv).
+    Returned as a sum of products. () means impassable, (frozenset(),) means free."""
+    clauses: list[frozenset[str]] = []
+    for raw_clause in expression.split("&"):
+        options = {token.strip() for token in raw_clause.split("|") if token.strip()}
+        if "nothing" in options or options & FREE_TOKENS:
+            continue                      # clause always satisfied
+        options -= DROPPED_TOKENS         # dropped tokens count as never true
+        if not options:
+            return ()                     # unsatisfiable clause -> no edge
+        clauses.append(frozenset(options))
+    if not clauses:
+        return (frozenset(),)
+    terms = {frozenset(combo) for combo in product(*clauses)}
+    minimal = [t for t in terms if not any(other < t for other in terms)]  # absorption
+    return tuple(sorted(minimal, key=lambda t: (len(t), sorted(t))))      # deterministic order
 
 def _region_name(node_id: str, name: str) -> str:
     """Region names must be unique and stable; ini names are neither on their own."""
