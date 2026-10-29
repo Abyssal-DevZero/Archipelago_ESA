@@ -18,11 +18,12 @@ from .data import (
 )
 
 INI_RESOURCE = "data/glitchlesslogic.ini"
-DROPPED_TOKENS = frozenset({"poweroff", "growthoff", "growthon", "mender"})
+DROPPED_TOKENS = frozenset({"poweroff"})
 
 # Node 121 "Derelict 5" is an orphan
 SKIPPED_NODES = frozenset({"121"})
-FREE_TOKENS: frozenset[str] = frozenset()
+FREE_TOKENS: frozenset[str] = frozenset({"growthon", "mender"})
+TOKEN_ALIASES = {"growthoff": "tpaccess"} 
 
 FLAG_TOKEN_EVENTS = {
     "switch": "Propeller Room Switch",
@@ -38,7 +39,7 @@ TELEPORT_HUB_REGION = "Teleport Network"
 # Edges where the ini gets adjusted for Archipelago: (source, target) -> replacement expression.
 EDGE_OVERRIDES = {
     # Jungle 1 -> Deep Jungle tp. ini: "jump&hook|vdash&charge" (This change attempts at moving the teleportaccess outside of the jungle, making it much harder to softlock oneself out of the jungle and temple)
-    ("114", "49"): "jump&hook&tpaccess&poweron&hdash&charge|vdash&tpaccess&poweron&hdash&charge",
+    ("114", "49"): "jump&hook|vdash&charge&tpaccess&poweron&hdash",
 }
 
 # The logic ini's item index is also its node id. Location names do not always match item names ("The Bike" lives at "Bike Spot"), so the mapping is explicit and checked against data.py at import.
@@ -134,6 +135,7 @@ def _parse_expression(expression: str) -> tuple[frozenset[str], ...]:
     clauses: list[frozenset[str]] = []
     for raw_clause in expression.split("&"):
         options = {token.strip() for token in raw_clause.split("|") if token.strip()}
+        options = {TOKEN_ALIASES.get(token, token) for token in options}
         if "nothing" in options or options & FREE_TOKENS:
             continue                      # clause always satisfied
         options -= DROPPED_TOKENS         # dropped tokens count as never true
@@ -320,7 +322,11 @@ def _validate() -> None:
     both = (FREE_TOKENS | DROPPED_TOKENS) & flag_tokens
     if both:
         raise ValueError(f"tokens cannot be free and granted at once: {sorted(both)}")
-
+        
+    conflicting = (FREE_TOKENS & DROPPED_TOKENS) | (set(TOKEN_ALIASES) & (FREE_TOKENS | DROPPED_TOKENS))
+    if conflicting:
+        raise ValueError(f"tokens with more than one meaning (free, dropped, aliased): {sorted(conflicting)}") 
+        
     ungranted = flag_tokens - set(FLAG_GRANTS)
     if ungranted:
         raise ValueError(f"no ini node grants these flag tokens: {sorted(ungranted)}")
