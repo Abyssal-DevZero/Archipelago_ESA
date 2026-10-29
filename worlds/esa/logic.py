@@ -1,7 +1,5 @@
 """Parses glitchlesslogic.ini into a node graph at import time.
-
-The ini is the specification for ESA's logic. Every edge in it says what it
-takes to get from one node to the next
+The ini is the specification for ESA's logic. Every edge in it says what it takes to get from one node to the next
 """
 
 from __future__ import annotations
@@ -10,6 +8,7 @@ import configparser
 import hashlib
 import pkgutil
 from dataclasses import dataclass
+from itertools import product
 
 from .data import (
     ITEMDATA_INDEX,
@@ -19,11 +18,12 @@ from .data import (
 )
 
 INI_RESOURCE = "data/glitchlesslogic.ini"
-DROPPED_TOKENS = frozenset({"poweroff", "growthoff", "growthon", "mender"})
+DROPPED_TOKENS = frozenset({"poweroff"})
 
 # Node 121 "Derelict 5" is an orphan
 SKIPPED_NODES = frozenset({"121"})
-FREE_TOKENS: frozenset[str] = frozenset()
+FREE_TOKENS: frozenset[str] = frozenset({"growthon", "mender"})
+TOKEN_ALIASES = {"growthoff": "tpaccess"} 
 
 FLAG_TOKEN_EVENTS = {
     "switch": "Propeller Room Switch",
@@ -36,7 +36,13 @@ FLAG_TOKEN_LOCATIONS = {
 
 TELEPORT_HUB_REGION = "Teleport Network"
 
-# The ini's item index is also its node id. Location names do not always match item names ("The Bike" lives at "Bike Spot"), so the mapping is explicit and checked against data.py at import.
+# Edges where the ini gets adjusted for Archipelago: (source, target) -> replacement expression.
+EDGE_OVERRIDES = {
+    # Jungle 1 -> Deep Jungle tp. ini: "jump&hook|vdash&charge" (This change attempts at moving the teleportaccess outside of the jungle, making it much harder to softlock oneself out of the jungle and temple)
+    ("114", "49"): "jump&hook|vdash&charge&tpaccess&poweron&hdash",
+}
+
+# The logic ini's item index is also its node id. Location names do not always match item names ("The Bike" lives at "Bike Spot"), so the mapping is explicit and checked against data.py at import.
 # TODO: Index 39 (CROWN) is not implemented yet as the crown has some... unique coding attached to it
 ITEM_INDEX_TO_LOCATION = {
     0: "Jump Booster Spot",
@@ -124,20 +130,23 @@ def _read_ini() -> str:
     return raw.decode("utf-8", errors="ignore")
 
 def _parse_expression(expression: str) -> tuple[frozenset[str], ...]:
-    """Turn 'jump&hook|vdash' into ((jump, hook), (vdash,)).
-    '&' binds tighter than '|' and there is no grouping syntax, so every expression is a flat sum of products. Products containing a dropped token are removed, 'nothing' becomes the empty product, meaning free passage.
-    """
-    terms: list[frozenset[str]] = []
-    for product in expression.split("|"):
-        tokens = {token.strip() for token in product.split("&") if token.strip()}
-        if tokens & DROPPED_TOKENS:
-            continue
-        tokens.discard("nothing")
-        tokens -= FREE_TOKENS
-        term = frozenset(tokens)
-        if term not in terms:
-            terms.append(term)
-    return tuple(terms)
+    """'|' binds tighter than '&': 'jump|hook&vdash|xv' == (jump|hook) & (vdash|xv).
+    Returned as a sum of products. () means impassable, (frozenset(),) means free."""
+    clauses: list[frozenset[str]] = []
+    for raw_clause in expression.split("&"):
+        options = {token.strip() for token in raw_clause.split("|") if token.strip()}
+        options = {TOKEN_ALIASES.get(token, token) for token in options}
+        if "nothing" in options or options & FREE_TOKENS:
+            continue                      # clause always satisfied
+        options -= DROPPED_TOKENS         # dropped tokens count as never true
+        if not options:
+            return ()                     # unsatisfiable clause -> no edge
+        clauses.append(frozenset(options))
+    if not clauses:
+        return (frozenset(),)
+    terms = {frozenset(combo) for combo in product(*clauses)}
+    minimal = [t for t in terms if not any(other < t for other in terms)]  # absorption
+    return tuple(sorted(minimal, key=lambda t: (len(t), sorted(t))))      # deterministic order
 
 def _region_name(node_id: str, name: str) -> str:
     """Region names must be unique and stable; ini names are neither on their own."""
@@ -226,7 +235,12 @@ class _Graph:
                 target = target.strip()
                 if not target or target not in self.nodes:
                     continue
-                self._add_edge(node_id, target, _parse_expression(fields.get(target, "nothing")))
+                expression = EDGE_OVERRIDES.get((node_id, target), fields.get(target, "nothing"))    #Include logic overrides
+                self._add_edge(node_id, target, _parse_expression(expression))
+        built = {(edge.source, edge.target) for edge in self.edges}
+        stale = set(EDGE_OVERRIDES) - built
+        if stale:
+            raise ValueError(f"EDGE_OVERRIDES names edges the ini does not build: {sorted(stale)}")
 
     def _build_doors(self, sections: dict[str, dict[str, str]]) -> None:
         doors: dict[str, dict[str, str]] = {}
@@ -308,7 +322,11 @@ def _validate() -> None:
     both = (FREE_TOKENS | DROPPED_TOKENS) & flag_tokens
     if both:
         raise ValueError(f"tokens cannot be free and granted at once: {sorted(both)}")
-
+        
+    conflicting = (FREE_TOKENS & DROPPED_TOKENS) | (set(TOKEN_ALIASES) & (FREE_TOKENS | DROPPED_TOKENS))
+    if conflicting:
+        raise ValueError(f"tokens with more than one meaning (free, dropped, aliased): {sorted(conflicting)}") 
+        
     ungranted = flag_tokens - set(FLAG_GRANTS)
     if ungranted:
         raise ValueError(f"no ini node grants these flag tokens: {sorted(ungranted)}")

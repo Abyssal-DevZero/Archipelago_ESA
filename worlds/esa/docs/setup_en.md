@@ -32,7 +32,7 @@ Start a **new save file**. An existing save already has pickup flags set; the cl
 
 The client patches the running game in memory each session, nothing is written to the executable, and nothing needs undoing afterwards. If you close the game, the client will re-attach and re-patch when you start it again.
 
-## Client commands
+## Debug commands
 
 | Command | Effect |
 |---|---|
@@ -40,5 +40,7 @@ The client patches the running game in memory each session, nothing is written t
 | `/goal` | Mark the seed finished (manual — the final boss flag is unmapped) |
 | `/patch` | Force a re-patch on the next poll |
 | `/unpatch` | Restore the game |
+| `/kill` | Kills the player. (Respawns on the last save station) |
+| `/unstuck` | Kills the player and sets the respawn point to the first save station under the player ship |
 
 - Goal completion is manual: type `/goal` after finishing

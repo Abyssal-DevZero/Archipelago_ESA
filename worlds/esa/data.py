@@ -121,7 +121,7 @@ LOCATION_NAME_TO_ID = {
     "Diskette SandMid Spot": 41,
     "Diskette Ship Spot": 42,
 
-    # boss keys
+    # Four keys
     "Key Mwyah Spot": 51,
     "Key Fire Spot": 52,
     "Key Caves Spot": 53,
@@ -241,7 +241,7 @@ MONITOR_FLAG = {
     "Password":   (8, 2, "1"),
 }
 
-# Hidden Keys
+# Four Keys
 KEY_FLAG = {
     "Key Mwyah":  (5, 0x26, "1"),
     "Key Fire":   (5, 0x27, "1"),
@@ -260,3 +260,6 @@ DISKETTE_INDEX = {
 }
 
 HEALTH_ITEMS = set(HEALTH_PACKS)
+# Endings
+VIRUS_DEFEATED_FLAG = (5, 25)
+MWYAH_DEFEATED_FLAG = (5, 37)

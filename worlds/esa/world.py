@@ -43,6 +43,7 @@ class ESAWorld(World):
         data = self.options.as_dict(
             "start_with_jump_booster",
             "goal",
+            "death_link",
         )
         data["seed_name"] = self.multiworld.seed_name
         return data
