@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+import re
 import struct
 import sys
 import time
@@ -25,7 +26,7 @@ RVA_RUNTIME = 0x771120
 RVA_GLOBAL_VALUES = 0x771128
 RVA_GLOBAL_STRINGS = 0x771130
 
-# cached INI files (respawn edit)
+# cached INI files (save file, dialogue)
 RVA_INI_CACHE = 0x7F0D80
 MAP_SENTINEL = 0x08
 MAP_SIZE = 0x10
@@ -41,6 +42,14 @@ OBJ_PLAYER = 0x1668                 # player instance
 OBJ_HP_COUNTER = 0x3AB0             # HP bar counter
 # also: 0x16B0 pickup message box, 0x2118 Health Pack pedestal
 # object + 0x20 -> data block; data + 0x280 + n*8 -> Alterable Value n (double)
+
+# Pickup grants: mov rax,[reg+0x810] ; movzx ecx,byte [rip+disp32]. The disp32 points at the
+# string holding the Dialogue.lar section the pickup message is taken from.
+KEY_LOAD = re.compile(rb"\x48\x8B[\x80-\x83\x85-\x87]\x10\x08\x00\x00\x0F\xB6\x0D(.{4})", re.S)
+GRANT_SCAN = 0x800                  # bytes read from the start of a grant function
+KEY_SLOT = 0x10                     # one inline key string: length byte + up to 15 chars
+KEY_MAX = KEY_SLOT - 1
+KEY_TABLE_OFF = 0x50                # key table offset inside a key-table stub
 
 # Counter objects keep state in direct fields
 COUNTER_VALUE = 0xC0                # double, current
@@ -145,13 +154,80 @@ def build_guard_stub(stub_addr: int, fix: IconFix, disp: int, index: int,
                      lambda at: with_return(at, original, return_addr))
     return code + jmp_rel32(stub_addr + len(code), exit_addr)
 
+def key_table_head(k: KeyIndex) -> bytes:
+    """First bytes of a key-table stub: the displaced instruction, then the bounds check."""
+    if k.into_object:
+        return (KEY_INDEX_EXPECT + b"\x41\x8D\x40" + bytes([-k.base & 0xFF])     # lea eax,[r8-base]
+                + b"\x83\xF8" + bytes([k.count]))                              # cmp eax,count
+    return KEY_INDEX_EXPECT + b"\x41\x83\xF8" + bytes([k.count])               # cmp r8d,count
+
+
+def _pad_table(out: bytearray, slots: bytes) -> bytes:
+    if len(out) > KEY_TABLE_OFF:
+        raise ValueError(f"key-table code is {len(out)} bytes, the table starts at {KEY_TABLE_OFF}")
+    return bytes(out) + b"\xCC" * (KEY_TABLE_OFF - len(out)) + slots
+
+
+def build_key_table_stub(stub_addr: int, static_addr: int, return_addr: int,
+                         k: KeyIndex, init: bytes) -> bytes:
+    """Run the displaced cvttsd2si, then copy table[r8d] over the key string at static_addr.
+
+    The table follows the code at KEY_TABLE_OFF, k.count slots of KEY_SLOT bytes, each
+    starting as `init`. Out-of-range indices leave the key string alone.
+    """
+    out = bytearray(key_table_head(k))
+    jae = len(out)
+    out += b"\x73\x00"                                              # jae done
+    out += b"\x44\x89\xC0"                                          # mov eax,r8d
+    out += b"\x48\xC1\xE0\x04"                                      # shl rax,4
+    out += _rel32(b"\x4C\x8D\x15", "table", stub_addr + len(out), stub_addr + KEY_TABLE_OFF)  # lea r10,[table]
+    out += b"\x4D\x8B\x1C\x02"                                      # mov r11,[r10+rax]
+    out += _rel32(b"\x4C\x89\x1D", "key", stub_addr + len(out), static_addr)        # mov [key],r11
+    out += b"\x4D\x8B\x5C\x02\x08"                                  # mov r11,[r10+rax+8]
+    out += _rel32(b"\x4C\x89\x1D", "key", stub_addr + len(out), static_addr + 8)    # mov [key+8],r11
+    out[jae + 1] = len(out) - (jae + 2)
+    out += jmp_rel32(stub_addr + len(out), return_addr)
+    return _pad_table(out, init * k.count)
+
+
+def build_object_key_stub(stub_addr: int, return_addr: int, k: KeyIndex) -> bytes:
+    """Run the displaced cvttsd2si, then copy table[r8d - base] into the dialogue object's key.
+
+    For grants that copy their key before computing the index. rdi must hold the runtime.
+    An empty slot, an out-of-range index or a heap-mode key leave the object alone.
+    """
+    out = bytearray(key_table_head(k))
+    skips = [len(out)]
+    out += b"\x73\x00"                                              # jae done
+    out += b"\x48\xC1\xE0\x04"                                      # shl rax,4
+    out += _rel32(b"\x4C\x8D\x15", "table", stub_addr + len(out), stub_addr + KEY_TABLE_OFF)  # lea r10,[table]
+    out += b"\x49\x01\xC2"                                          # add r10,rax
+    out += b"\x41\x80\x3A\x00"                                      # cmp byte [r10],0
+    skips.append(len(out))
+    out += b"\x74\x00"                                              # je done
+    out += b"\x48\x8B\x87" + struct.pack("<i", 0x810)              # mov rax,[rdi+0x810]
+    out += b"\x48\x8B\x40\x20"                                      # mov rax,[rax+0x20]
+    out += b"\xF6\x40\x40\x01"                                      # test byte [rax+0x40],1
+    skips.append(len(out))
+    out += b"\x75\x00"                                              # jnz done
+    out += b"\x4D\x8B\x1A"                                          # mov r11,[r10]
+    out += b"\x4C\x89\x58\x40"                                      # mov [rax+0x40],r11
+    out += b"\x4D\x8B\x5A\x08"                                      # mov r11,[r10+8]
+    out += b"\x4C\x89\x58\x48"                                      # mov [rax+0x48],r11
+    for at in skips:
+        out[at + 1] = len(out) - (at + 2)
+    out += jmp_rel32(stub_addr + len(out), return_addr)
+    return _pad_table(out, bytes(KEY_SLOT * k.count))
 
 ICON_STUB_MAX = 80
 GUARD_STUB_MAX = 48
+KEY_STUB_MAX = KEY_TABLE_OFF + KEY_SLOT * 16
 TAIL_LEN = {"base": 7, "slot": 5}
 
 def stub_size(covered: int, kind: str = "cave") -> int:
     """Upper bound on one stub."""
+    if kind == "keytable":
+        return KEY_STUB_MAX
     if kind == "icon":
         return ICON_STUB_MAX
     if kind in ("guard", "owned"):
@@ -314,7 +390,20 @@ PRINTABLE = set(range(0x20, 0x7F))
 def plausible_ptr(p):
     """User-mode, 8-aligned, non-null."""
     return bool(p) and 0x10000 <= p < 0x7FFF_FFFF_FFFF and not (p & 7)
-
+    
+def find_key_static(proc, grant_rva):
+    """Address of the dialogue key string a pickup grant copies, or None."""
+    start = proc.base + grant_rva
+    code = proc.read(start, GRANT_SCAN)
+    end = code.find(b"\xC3\xCC") if code else -1        # ret + int3 padding: end of the function
+    m = KEY_LOAD.search(code, 0, end) if end > 0 else None
+    if m is None:
+        return None
+    return start + m.end() + struct.unpack("<i", m.group(1))[0]
+    
+def key_bytes(key: str) -> bytes:
+    """An inline key string, padded to one table slot."""
+    return (bytes([len(key) << 1]) + key.encode("ascii")).ljust(KEY_SLOT, b"\0")
 
 class Game:
     def __init__(self, proc):
@@ -421,8 +510,8 @@ class Game:
             yield node
             node = self.p.read_u64(node)
 
-    def map_find(self, map_addr, match):
-        for node in self.map_nodes(map_addr):
+    def map_find(self, map_addr, match, limit=256):
+        for node in self.map_nodes(map_addr, limit):
             key = self.read_str_at(node + NODE_KEY)
             if key is not None and match(key):
                 return node
@@ -434,7 +523,39 @@ class Game:
                           lambda k: k.replace("\\", "/").lower().endswith("/" + SAVE_FILE_NAME))
         sec = self.map_find(f + NODE_VALUE, lambda k: k == f"save{slot}") if f else None
         return sec + NODE_VALUE if sec else None
+        
+    def ini_file_maps(self, name):
+        """[(path, section map)] of every cached INI file whose path ends in /name."""
+        out = []
+        for node in self.map_nodes(self.p.base + RVA_INI_CACHE):
+            path = self.read_str_at(node + NODE_KEY)
+            if path and path.replace("\\", "/").lower().endswith("/" + name.lower()):
+                out.append((path, node + NODE_VALUE))
+        return out
 
+    def ini_keys_map(self, file_map, section):
+        sec = self.map_find(file_map, lambda k: k == section, limit=1024)
+        return sec + NODE_VALUE if sec else None
+
+    def read_ini_raw(self, keys_map, key):
+        """Raw bytes of a value, no decoding (Dialogue.lar uses Latin-1 control codes)."""
+        node = self.map_find(keys_map, lambda k: k == key)
+        return self._raw_str(node + NODE_VALUE, 4096, INLINE_MAX) if node else None
+
+    def write_ini_raw(self, keys_map, key, raw: bytes):
+        """Inline only, like write_save_key; refuses heap values and anything over 62 bytes."""
+        if len(raw) > INLINE_MAX:
+            return False
+        node = self.map_find(keys_map, lambda k: k == key)
+        if node is None:
+            return False
+        elem = node + NODE_VALUE
+        head = self.p.read(elem, 1)
+        if head is None or head[0] & 1:
+            return False
+        return (self.p.write(elem, bytes([len(raw) << 1]) + raw + b"\0")
+                and self._raw_str(elem, 4096, INLINE_MAX) == raw)
+        
     def read_save_key(self, keys_map, key):
         node = self.map_find(keys_map, lambda k: k == key)
         return self.read_str_at(node + NODE_VALUE) if node else None
@@ -452,7 +573,42 @@ class Game:
             return False
         payload = bytes([len(text) << 1]) + text.encode("ascii") + b"\0"
         return self.p.write(elem, payload) and self.read_str_at(elem) == text
+        
+    # Pickup message keys
 
+    def pickup_key_static(self, grant_rva):
+        return find_key_static(self.p, grant_rva)
+
+    def key_table(self, k):
+        """Address of the key table behind the installed stub for KeyIndex k, or None."""
+        site = self.p.base + k.rva
+        jmp = self.p.read(site, JMP_LEN)
+        if jmp is None or jmp[0] != 0xE9:
+            return None
+        stub = site + JMP_LEN + struct.unpack_from("<i", jmp, 1)[0]
+        head = key_table_head(k)
+        return stub + KEY_TABLE_OFF if self.p.read(stub, len(head)) == head else None
+
+    def read_key(self, addr):
+        """A short inline string such as 'hookget' ('' for an empty table slot), or None."""
+        head = self.p.read(addr, 16)
+        if head is None or head[0] & 1:
+            return None
+        n = head[0] >> 1
+        raw = head[1:1 + n]
+        if n > KEY_MAX or not all(0x21 <= b < 0x7F for b in raw):
+            return None
+        return raw.decode("ascii")
+
+    def write_key(self, addr, key):
+        """Inline only, exactly one table slot, verified. Grants copy the key, nothing frees it."""
+        if len(key) > KEY_MAX:
+            return False
+        head = self.p.read(addr, 1)
+        if head is None or head[0] & 1:
+            return False
+        return self.p.write(addr, key_bytes(key)) and self.read_key(addr) == key
+        
     # Objects
 
     def object_instances(self, slot, limit=64):
@@ -621,6 +777,7 @@ class Trampolines:
         self.saved = {}
         self.installed = set()
         self.skipped = set()
+        self.key_statics = {}               # key-table site rva -> (key string address, original bytes) 
 
     @staticmethod
     def plan(entries=None):
@@ -688,6 +845,13 @@ class Trampolines:
         if kind == "owned":                         # real slot decides
             return build_guard_stub(at, e.icon, slot_disp(e.slot), e.index, original, ret,
                                     self.p.base + (e.icon.owned_skip or e.icon.exit_rva))
+        if kind == "keytable":
+            k = e.key_at(site - self.p.base)
+            if k.into_object:
+                return build_object_key_stub(at, ret, k)
+            static, init = self.key_statics[k.rva]
+            return build_key_table_stub(at, static, ret, k, init)
+            
         return with_return(at, add_rdx(sdisp) + original[4:], ret)      # cave
 
     def install(self, log, entries=None):
@@ -723,6 +887,18 @@ class Trampolines:
                     log.error(f"trampolines: ABORT, show call after {where} is not where "
                               "the IconFix says")
                     return False
+                    
+            if kind == "keytable" and not e.key_at(rva).into_object:
+                static = find_key_static(self.p, e.grant_fn)
+                init = self.p.read(static, KEY_SLOT) if static else None
+                if init is None or init[0] & 1 or not 0 < init[0] >> 1 <= KEY_MAX:
+                    if rva not in self.skipped:     # optional: the pickup message stays vanilla
+                        log.warning(f"trampolines: no inline dialogue key found for {where}, "
+                                    "its pedestals keep the vanilla pickup message")
+                        self.skipped.add(rva)
+                    continue
+                self.key_statics[rva] = (static, init)
+                
             payloads.append((e, label, rva, covered, kind, cur))
         if not payloads:
             return True
@@ -776,6 +952,11 @@ class Trampolines:
                 return n
             self.installed.discard(rva)
             n += 1
+            
+            if rva in self.key_statics:             # the stub may have left another key there
+                static, init = self.key_statics.pop(rva)
+                self.p.write(static, init)
+                
         self.saved.clear()
         if not self.installed:
             self.cursor = self.stub_base            # nothing jumps into the page any more
@@ -811,6 +992,8 @@ class Attachment:
         self.prev_base = self.sbase = self.vbase = None
         self.patched = self.shadow_ready = False
         self.hpmax_writable = None
+        self.pickup_targets = None          # [(location id, key address, vanilla section)]
+        self.dialogue_sections = {}         # section -> key maps in the cached Dialogue.lar
         self.ready_since = None
         self.last_why = None
         if why:
