@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 __all__ = [
     "ALL_INDICES", "ENTRIES", "ENTRIES_BY_SLOT", "ENTRY_BY_ID", "Entry", "IconFix",
-    "JMP_LEN", "NOP", "REAL_OF", "REAL_SLOTS", "REG64", "RUNTIME_STRINGS",
+    "JMP_LEN", "KEY_INDEX_EXPECT", "KeyIndex", "NOP", "REAL_OF", "REAL_SLOTS", "REG64", "RUNTIME_STRINGS",
     "SHADOW_OF", "SLOTS", "STRING_STRIDE", "add_rdx", "mov_edx", "mov_r64_mem",
     "read_slot_for", "select_sites", "shadow_coverage", "shadow_live", "slot_disp", "test_reg8",
 ]
@@ -86,6 +86,17 @@ def test_reg8(name: str) -> bytes:
     else:
         raise ValueError(f"unsupported 8-bit register {name!r}")
     return rex + bytes([0x84, 0xC0 | (code << 3) | code])
+    
+KEY_INDEX_EXPECT = bytes.fromhex("F2440F2CC0")    # cvttsd2si r8d,xmm0: pedestal index in a shared grant
+
+
+@dataclass(frozen=True)
+class KeyIndex:
+    """Where a shared grant computes the pedestal's flag index, and the key table hooked there."""
+    rva: int
+    count: int                      # table slots
+    base: int = 0                   # flag index of slot 0
+    into_object: bool = False       # write the dialogue object (the grant already copied its key)    
     
 OWNED_PREFIX = bytes.fromhex("B201488B8F")     # Try at fixing UI bugs, all have the same pattern of "mov dl,1 ; mov rcx,[rdi+disp32]..."
 OWNED_LEN = 9                                   # ...through the end of the disp32 
@@ -186,6 +197,7 @@ class Entry:
     suppression_only: bool = False
     grant_only: bool = False
     extra_grants: list = field(default_factory=list)    # (src rva, slot rva) extra writers
+    key_index: list = field(default_factory=list)       # [KeyIndex]
     enabled: bool = True
     note: str = ""
 
@@ -210,6 +222,11 @@ class Entry:
             v = getattr(self, f)
             if v is not None and not _ints(v, 2):
                 bad(f"{f} must be (rva, len), got {v!r}")
+        for k in self.key_index:
+            if not isinstance(k, KeyIndex) or not 1 <= k.count <= 16 or not 0 <= k.base <= 0x7F:
+                bad(f"key_index holds KeyIndex(rva, 1..16 slots, base 0..127), got {k!r}")
+            if not k.into_object and self.grant_fn is None:
+                bad("a key table on the grant's key string needs grant_fn")
         for f in ("cave_sites", "base_sites", "nop_sites", "extra_grants"):
             for v in getattr(self, f):
                 if not _ints(v, 2):
@@ -283,8 +300,13 @@ class Entry:
                 out.append(("destroy guard", fx.guard_rva, len(fx.guard_expect), "guard"))
             if (owned := fx.owned_site) is not None:
                 out.append(("owned guard", owned[0], owned[1], "owned"))
+        out += [("key table", k.rva, len(KEY_INDEX_EXPECT), "keytable") for k in self.key_index]
         return out
-
+        
+    def key_at(self, rva):
+        """The KeyIndex hooked at rva."""
+        return next(k for k in self.key_index if k.rva == rva)
+        
     def expect_at(self, rva, kind):
         """Bytes the site must hold before patching, or None."""
         if kind == "icon":
@@ -293,6 +315,8 @@ class Entry:
             return self.icon.guard_expect
         if kind == "owned":
             return self.icon.owned_site[2]
+        if kind == "keytable":
+            return KEY_INDEX_EXPECT
         if kind in ("base", "slot"):
             return self.site_expect.get(rva)
         return SITE_EXPECT.get(self.slot)
@@ -374,7 +398,8 @@ ENTRIES = [
     Entry("bonus_all", "All 12 Diskettes", 4, "computed",
           suppress_fn=0x2F5EB0, pedestal=0x55B0,
           suppress_rvas=[0x2F5EE9], grant_fn=0x2F3AA0,
-          grant_src_rva=0x2F3B81, grant_slot_rva=0x2F3C08),
+          grant_src_rva=0x2F3B81, grant_slot_rva=0x2F3C08,
+          key_index=[KeyIndex(0x2F3BFB, 12)]),
     Entry("lisa2", "Dash Booster X", 5, 2,
           suppress_fn=0x2F57F0, pedestal=0xB670,
           suppress_rvas=[0x2F581B, 0x2F5916], grant_fn=0x2F3260,
@@ -461,7 +486,8 @@ ENTRIES = [
               0x2F15EE: bytes.fromhex("33D2488BCB"),
               0x2F1737: bytes.fromhex("F20F114230"),
           },
-          base_pi=True),
+          base_pi=True,
+          key_index=[KeyIndex(0x2F15E1, 8)]),
 
     # Power monitor
     Entry("lisa8", "Power", 5, 8,
@@ -521,8 +547,10 @@ Entry("lisa_pillars", "Pillars 1-4", 5, (0x20, 0x21, 0x22, 0x23),
               (0x3027B8, bytes.fromhex("488B8E48010000"), bytes.fromhex("488B8E48040000")),
             # fn 1403028D0, keys-held branch
               *_monitor_reads(0x30294A),
-          ]),
-
+          ],
+          key_index=[KeyIndex(0x3020F5, 4, 0x26, into_object=True),      # first key
+                     KeyIndex(0x302755, 4, 0x26, into_object=True)]),    # later keys
+    
     # Password monitor in mark (the one after defeating station AI)
     Entry("mark2", "Password", 8, 2,
           suppress_fn=0x3757B0,
