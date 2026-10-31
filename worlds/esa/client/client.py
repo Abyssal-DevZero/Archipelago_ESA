@@ -17,9 +17,9 @@ from NetUtils import ClientStatus
 from . import memory as mem
 from .memory import DETACHED, READY, SLOTS, hpmax_for
 from ..data import (
-    ABILITY_FLAG, CHECK_CHAR_BY_ID, COUPLED_LOCATIONS, DISKETTE_INDEX, GRANT_FLAG,
-    HEALTH_ITEMS, ID_TO_LOCATION, ITEM_ID_TO_NAME, LOCATION_FLAG, LOCATION_NAME_TO_ID,
-    MONITOR_FLAG, MWYAH_DEFEATED_FLAG, VIRUS_DEFEATED_FLAG,
+    ABILITY_FLAG, CHECK_CHAR_BY_ID, COUPLED_LOCATIONS, DISKETTE_INDEX, DISKETTES, GRANT_FLAG,
+    HEALTH_ITEMS, HEALTH_PACKS, ID_TO_LOCATION, ITEM_ID_TO_NAME, KEYS, LOCATION_FLAG,
+    LOCATION_NAME_TO_ID, MONITOR_FLAG, MWYAH_DEFEATED_FLAG, VIRUS_DEFEATED_FLAG,
 )
 from ..options import Goal
 
@@ -31,6 +31,89 @@ GOAL_FLAGS = {
     Goal.option_base_game: VIRUS_DEFEATED_FLAG,
     Goal.option_postgame: MWYAH_DEFEATED_FLAG,
 }
+
+# location -> (patch entry whose grant shows the pickup message, vanilla Dialogue.lar section)
+PICKUP_DIALOGUE = {
+    "Rough Map Spot":           ("tavarat0", "mapget"),
+    "Hookshot Spot":            ("tavarat1", "hookget"),
+    "Propeller Spot":           ("tavarat2", "swimget"),
+    "Charge Shot Spot":         ("tavarat3", "shotget"),
+    "Heat-Resistant suit Spot": ("tavarat4", "suitget"),
+    "Plasma Shield Spot":       ("tavarat5", "shieldget"),
+    "Triple Shot Spot":         ("tavarat6", "tripleget"),
+    "Supercharge Module Spot":  ("tavarat8", "superget"),
+    "Gold Keycard Spot":        ("tavarat9", "keyget"),
+    "Dash Booster H Spot":      ("bombs0", "bombget"),
+    "Dash Booster V Spot":      ("bombs1", "vertget"),
+    "Dash Booster X Spot":      ("lisa2", "endlessget"),
+    "Teleport Access Spot":     ("lisa24", "teleget"),
+    "Jump Booster Spot":        ("superjump_all", "jumpget"),
+}
+
+# Shared grants, one key per pedestal via key tables: patch entry -> vanilla section.
+# Table slot i belongs to the location whose flag is (entry slot, base + i). An empty
+# section leaves the grant's own message.
+INDEXED_DIALOGUE = {
+    "health_all": "tankget",
+    "bonus_all": "diskget",
+    "lisa_keys": "",
+}
+FLAG_LOCATION = {flag: LOCATION_NAME_TO_ID[name] for name, flag in LOCATION_FLAG.items()}
+
+
+def table_slots(entry_id: str):
+    """(KeyIndex, slot, location id) for every table slot of an indexed entry."""
+    e = mem.ENTRY_BY_ID[entry_id]
+    for k in e.key_index:
+        for i in range(k.count):
+            loc_id = FLAG_LOCATION.get((e.slot, k.base + i))
+            if loc_id is not None:
+                yield k, i, loc_id
+
+
+# Monitors show the section named like the monitor: location -> (section, vanilla page 1,
+# end there). Only page 1 is rewritten; it ends the dialogue unless the rest must still play.
+MONITOR_DIALOGUE = {
+    "Power Monitor":      ("Power", "\xa402main generator+activated!\xc5", True),
+    "Gate Alpha Monitor": ("gateA", "\xa402main entrance security+gate alpha locked.\xc5", True),
+    "Gate Beta Monitor":  ("gateB", "\xa402main entrance security+gate beta locked.\xc5", True),
+    "Gate Gamma Monitor": ("gateC", "\xa402main entrance security+gate gamma locked.\xc5", True),
+    "Gate Delta Monitor": ("gateD", "\xa402main entrance security+gate delta locked.\xc5", True),
+    "Pillar 1 Monitor":   ("1", "\xa402*pillar 1 has now been unlocked*\xd6", True),
+    "Pillar 2 Monitor":   ("2", "\xa402*pillar 2 has now been unlocked*\xd6", True),
+    "Pillar 3 Monitor":   ("3", "\xa402*pillar 3 has now been unlocked*\xd6", True),
+    "Pillar 4 Monitor":   ("4", "\xa402*pillar 4 has now been unlocked*\xd6", True),
+    "Password Monitor":   ("wrecked1", "\xa402success!\xc5", False),     # story and password follow
+}
+
+PICKUP_LOCATIONS = (set(PICKUP_DIALOGUE) | set(MONITOR_DIALOGUE)
+                    | {ID_TO_LOCATION[loc_id] for e in INDEXED_DIALOGUE for _, _, loc_id in table_slots(e)})
+
+# item -> section holding its vanilla pickup message
+ITEM_DIALOGUE = {
+    "Jump Booster": "jumpget", "Hookshot": "hookget", "Teleport Access": "teleget",
+    "Propeller": "swimget", "Charge Shot": "shotget", "Dash Booster H": "bombget",
+    "Heat-Resistant Suit": "suitget", "Gold Keycard": "keyget", "Dash Booster V": "vertget",
+    "Rough Map": "mapget", "Triple Shot": "tripleget", "Plasma Shield": "shieldget",
+    "Supercharge Module": "superget", "Dash Booster X": "endlessget",
+    **{name: "tankget" for name in HEALTH_PACKS},
+    **{name: "diskget" for name in DISKETTES},
+    **{name: "mysteryget" for name in KEYS},
+    # monitor items: the section the monitor shows once activated (never rewritten)
+    "Power": "PowerB", "Password": "wreckaccess",
+    **{f"Gate {g}": "gateo" for g in ("Alpha", "Beta", "Gamma", "Delta")},
+    **{f"Pillar {n}": f"{n}b" for n in range(1, 5)},
+}
+
+# Items for other worlds use a section the game never shows. False keeps the vanilla message.
+OFFWORLD = True
+OFFWORLD_SECTION = "bluetiles"
+OFFWORLD_PAGES = {"1": "\xa404you found an&*ap item*!\xc5",
+                  "2": "it was sent to+another world.\xd6"}
+MONITOR_OFFWORLD = "\xa404ap item sent to&another world!\xd6"
+KNOWN_KEYS = ({s for _, s in PICKUP_DIALOGUE.values()} | set(ITEM_DIALOGUE.values())
+              | {OFFWORLD_SECTION})
+PICKUP_REFRESH = 2.0                    # seconds between pickup message passes
 
 @functools.cache
 def read_map() -> dict[int, dict[int, int]]:
@@ -139,7 +222,6 @@ def push_inventory(att, counts: dict[str, int], write_diskettes: bool) -> list:
                                "one that matters.")
     return changed
 
-
 def grant_access_level(att) -> str | None:
     """Access Level 2 on: only ever 0 -> 1."""
     slot, index, char = ACCESS_LEVEL_2
@@ -147,6 +229,122 @@ def grant_access_level(att) -> str | None:
     if cur is None or index >= len(cur) or cur[index] != "0":
         return None
     return f"{SLOTS[slot][0]}[{index}] 0 -> {char}" if att.write_char(slot, index, char) else None
+  
+def find_pickup_targets(att) -> list[tuple[int, int, str]]:
+    """[(location id, key address, vanilla section)] for every pedestal whose key can be found.
+    Any known section is accepted, not just the vanilla one: after a client restart the keys still hold what the previous session wrote.
+    """
+    found: dict[int, list[tuple[int, str]]] = {}
+    for loc, (entry_id, vanilla) in PICKUP_DIALOGUE.items():
+        e = mem.ENTRY_BY_ID.get(entry_id)
+        addr = att.game.pickup_key_static(e.grant_fn) if e and e.grant_fn else None
+        have = att.game.read_key(addr) if addr else None
+        if have not in KNOWN_KEYS:
+            logger.warning("pickup message: no dialogue key found for %s (%s), it keeps the "
+                           "vanilla message", loc, have or "pattern not found")
+            continue
+        found.setdefault(addr, []).append((LOCATION_NAME_TO_ID[loc], vanilla))
+    out = []
+    for addr, locs in found.items():
+        if len(locs) > 1:
+            logger.warning("pickup message: %s share one dialogue key, they keep the vanilla "
+                           "message", ", ".join(ID_TO_LOCATION[i] for i, _ in locs))
+            continue
+        loc_id, vanilla = locs[0]
+        out.append((loc_id, addr, vanilla))
+    for entry_id, vanilla in INDEXED_DIALOGUE.items():
+        tables = {}
+        for k, i, loc_id in table_slots(entry_id):
+            if k not in tables:
+                tables[k] = att.game.key_table(k)
+                if tables[k] is None:
+                    logger.warning("pickup message: no key table at +%X (%s), those pedestals keep "
+                                   "the vanilla message", k.rva, mem.ENTRY_BY_ID[entry_id].label)
+            if tables[k] is not None:
+                out.append((loc_id, tables[k] + i * mem.KEY_SLOT, vanilla))
+    return out
+
+def dialogue_keys(att, section: str) -> list:
+    """Key maps of a Dialogue.lar section in every cached copy, remembered per attach."""
+    cached = att.dialogue_sections.get(section)
+    if cached:
+        return cached
+    found = [keys for _, file_map in att.game.ini_file_maps("dialogue.lar")
+             if (keys := att.game.ini_keys_map(file_map, section)) is not None]
+    if found:
+        att.dialogue_sections[section] = found
+    return found
+
+def offworld_ready(att) -> bool:
+    """Write the off-world message into its section. True once every page holds it."""
+    sections = dialogue_keys(att, OFFWORLD_SECTION)
+    ok = bool(sections)
+    for keys in sections:
+        for key, text in OFFWORLD_PAGES.items():
+            want = text.encode("latin-1")
+            if att.game.read_ini_raw(keys, key) != want and not att.game.write_ini_raw(keys, key, want):
+                ok = False
+    return ok
+
+def wanted_section(ctx, loc_id: int, vanilla: str, offworld: bool) -> str:
+    """Section the pedestal at loc_id should show."""
+    it = ctx.locations_info.get(loc_id)
+    if it is None:
+        return vanilla
+    if it.player != ctx.slot:
+        return OFFWORLD_SECTION if offworld else vanilla
+    name = ITEM_ID_TO_NAME.get(it.item)
+    if name in KEYS and not vanilla:            # a key on a key pedestal: its own message
+        return vanilla
+    return ITEM_DIALOGUE.get(name, vanilla)
+
+def monitor_page(ctx, loc_id: int, vanilla: bytes, end: bool) -> bytes:
+    """Page 1 the monitor at loc_id should show; `end` decides whether the dialogue stops there."""
+    it = ctx.locations_info.get(loc_id)
+    if it is None:
+        return vanilla
+    if it.player != ctx.slot:
+        if not OFFWORLD:
+            return vanilla
+        page = MONITOR_OFFWORLD.encode("latin-1")
+    else:
+        name = ITEM_ID_TO_NAME.get(it.item)
+        if f"{name} Monitor" == ID_TO_LOCATION[loc_id]:     # the monitor's own item: its own text
+            return vanilla
+        section = ITEM_DIALOGUE.get(name)
+        sections = dialogue_keys(ctx.att, section) if section else []
+        page = ctx.att.game.read_ini_raw(sections[0], "1") if sections else None
+        if not page or len(page) > mem.INLINE_MAX:
+            return vanilla
+    if page[-1:] in (b"\xc5", b"\xd6"):
+        page = page[:-1] + (b"\xd6" if end else b"\xc5")
+    return page
+
+def push_monitor_texts(ctx) -> list[str]:
+    """Rewrite page 1 of every monitor's own section with the item that is really there."""
+    changed = []
+    for name, (section, vanilla, end) in MONITOR_DIALOGUE.items():
+        want = monitor_page(ctx, LOCATION_NAME_TO_ID[name], vanilla.encode("latin-1"), end)
+        for keys in dialogue_keys(ctx.att, section):
+            if ctx.att.game.read_ini_raw(keys, "1") != want and ctx.att.game.write_ini_raw(keys, "1", want):
+                changed.append(f"{name} -> {want.decode('latin-1')!r}")
+    return changed
+
+def push_pickup_texts(ctx) -> list[str]:
+    """Point every pedestal and monitor at the message of the item that is really there."""
+    att = ctx.att
+    if att.pickup_targets is None:
+        att.pickup_targets = find_pickup_targets(att)
+    needs_offworld = OFFWORLD and any(
+        (it := ctx.locations_info.get(loc_id)) is not None and it.player != ctx.slot
+        for loc_id, _, _ in att.pickup_targets)
+    offworld = needs_offworld and offworld_ready(att)
+    changed = []
+    for loc_id, addr, vanilla in att.pickup_targets:
+        want = wanted_section(ctx, loc_id, vanilla, offworld)
+        if att.game.read_key(addr) != want and att.game.write_key(addr, want):
+            changed.append(f"{ID_TO_LOCATION[loc_id]} -> [{want}]")
+    return changed + push_monitor_texts(ctx)
   
 def kill_player(game) -> tuple[bool, str]:
     """HP counter to 0. (ok, message). The counter object, not Global Value 3 (see VALUE_DO_NOT_WRITE)."""
@@ -249,6 +447,29 @@ class ESACommandProcessor(ClientCommandProcessor):
             return
         logger.info("kill: HP %g -> 0. Checks are kept; items re-sync after respawn.", before[0])
       
+    def _cmd_pickups(self):
+        """Which message each pedestal will show."""
+        att = self.ctx.att
+        if self._live_game() is None:
+            return
+        if att.pickup_targets is None:
+            self.output("not scanned yet, connect first")
+            return
+        found = set()
+        for loc_id, addr, vanilla in sorted(att.pickup_targets):
+            found.add(ID_TO_LOCATION[loc_id])
+            self.output(f"{ID_TO_LOCATION[loc_id]:<28} [{vanilla or 'own'}] -> "
+                        f"[{att.game.read_key(addr) or 'own'}]")
+        for name, (section, _, _) in MONITOR_DIALOGUE.items():
+            sections = dialogue_keys(att, section)
+            page = att.game.read_ini_raw(sections[0], "1") if sections else None
+            if page is not None:
+                found.add(name)
+                self.output(f"{name:<28} [{section}] -> {page.decode('latin-1')!r}")
+        missing = PICKUP_LOCATIONS - found
+        if missing:
+            self.output("not found: " + ", ".join(sorted(missing)))
+          
     def _cmd_obj(self, offset: str = ""):
         """`/obj <hex>`: live instances of the object at runtime + offset."""
         game = self._live_game()
@@ -308,6 +529,7 @@ class ESAContext(CommonContext):
         self.death_link = False
         self.hp_alive: bool | None = None   # HP > 0 at the last poll; None = no reading this frame yet
         self.pending_death: float | None = None     # monotonic time a DeathLink arrived, not yet applied
+        self.last_pickup_push = 0.0 
 
     async def server_auth(self, password_requested: bool = False):
         if password_requested and not self.password:
@@ -344,6 +566,12 @@ class ESAContext(CommonContext):
             if stray:
                 logger.warning("the server does not know location id(s) %s: this client's tables "
                                "are out of step with the apworld", stray)
+            self.locations_info = {}
+            scout = sorted(i for n in PICKUP_LOCATIONS if (i := LOCATION_NAME_TO_ID[n]) in known)
+            if scout:
+                Utils.async_start(self.send_msgs([{"cmd": "LocationScouts", "locations": scout, "create_as_hint": 0}]), name="pickup scout")
+        elif cmd == "LocationInfo":
+            self.last_pickup_push = 0.0             # write on the next poll
         elif cmd == "ReceivedItems":
             self.items_synced = True
         elif cmd == "RoomUpdate":
@@ -482,7 +710,11 @@ async def poll(ctx: ESAContext):
     push_ledger(att, ledger)
     for line in push_inventory(att, ctx.inventory_counts(), ctx.write_diskettes):
         logger.debug("grant: %s", line)
-
+    now = time.monotonic()
+    if now - ctx.last_pickup_push >= PICKUP_REFRESH:
+        ctx.last_pickup_push = now
+        for line in push_pickup_texts(ctx):
+            logger.debug("pickup message: %s", line)
 
 async def main(args):
     ctx = ESAContext(args.connect, args.password)
