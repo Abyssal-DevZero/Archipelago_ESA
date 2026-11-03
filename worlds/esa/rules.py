@@ -1,6 +1,4 @@
 """Turns the parsed logic expressions into rule_builder rules.
-
-Graph based logic, every requirement in ESA's logic is an edge requirement. a location is reachable exactly when its node's region is
 """
 
 from __future__ import annotations
@@ -16,11 +14,10 @@ from .options import Goal
 if TYPE_CHECKING:
     from .world import ESAWorld
 
-# One entry per token the ini can put on an edge.
-
 def _health(count: int) -> Rule:
     return HasGroupUnique("Health Packs", count=count)
-
+    
+#Logic definitions
 TOKEN_RULES: dict[str, Rule] = {
     "jump": Has("Jump Booster"),
     "hook": Has("Hookshot"),
@@ -58,7 +55,12 @@ CLASS_A_NODE = "115"
 
 BIKE_SPOT = "Bike Spot"
 DASH_BOOSTERS = ("Dash Booster H", "Dash Booster V", "Dash Booster X")
- 
+GATE_MONITORS = (
+    "Gate Alpha Monitor",
+    "Gate Beta Monitor",
+    "Gate Gamma Monitor",
+    "Gate Delta Monitor",
+)
 def base_game() -> Rule:
     """Defeat the virus: Power, all four Gates, and Class A unlocked."""
     return (
@@ -88,6 +90,7 @@ def rule_for_edge(edge: logic.Edge) -> Rule | None:
 
 def set_all_rules(world: ESAWorld) -> None:
     set_all_entrance_rules(world)
+    set_gate_monitor_rules(world)
     set_completion_rule(world)
     set_bike_spot_rule(world)
 
@@ -115,6 +118,11 @@ def set_bike_spot_rule(world: ESAWorld) -> None:
     world.set_rule(location, base_game())
     if world.options.goal != Goal.option_postgame:
         location.item_rule = lambda item: not item.advancement
+        
+def set_gate_monitor_rules(world: ESAWorld) -> None:
+    """Puts Power before Gates in logic"""
+    for name in GATE_MONITORS:
+        world.set_rule(world.get_location(name), TOKEN_RULES["poweron"])
 
 def set_completion_rule(world: ESAWorld) -> None:
     if world.options.goal == Goal.option_postgame:
