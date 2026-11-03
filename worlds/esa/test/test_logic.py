@@ -325,7 +325,18 @@ class TestRules(ESATestBase):
                          "Pillar 1 Monitor", "Dash Booster V Spot"):
             with self.subTest(location=location):
                 self.assertFalse(self.can_reach_location(location))
- 
+             
+    def test_gate_monitors_need_power(self) -> None:
+        from ..rules import GATE_MONITORS
+        self.collect_all_but("Power")
+        for location in GATE_MONITORS:
+            with self.subTest(location=location, power=False):
+                self.assertFalse(self.can_reach_location(location))
+        self.collect_by_name("Power")
+        for location in GATE_MONITORS:
+            with self.subTest(location=location, power=True):
+                self.assertTrue(self.can_reach_location(location))  
+             
     def test_mainframe_shortcut_needs_class_a(self) -> None:
         entrance = f"{_region('54')} -> {_region('85')}"
         self.collect_by_name(["Jump Booster", "Hookshot", "Dash Booster V"])
