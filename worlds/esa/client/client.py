@@ -108,9 +108,9 @@ ITEM_DIALOGUE = {
 # Items for other worlds use a section the game never shows. False keeps the vanilla message.
 OFFWORLD = True
 OFFWORLD_SECTION = "bluetiles"
-OFFWORLD_PAGES = {"1": "\xa404you found an&*ap item*!\xc5",
-                  "2": "it was sent to+another world.\xd6"}
-MONITOR_OFFWORLD = "\xa404ap item sent to&another world!\xd6"
+OFFWORLD_PAGES = {"1": "\xa404You found an&*AP item*!\xc5",
+                  "2": "It was sent to+another world.\xd6"}
+MONITOR_OFFWORLD = "\xa404Found and *AP item*&and sent it to another world!\xd6"
 KNOWN_KEYS = ({s for _, s in PICKUP_DIALOGUE.values()} | set(ITEM_DIALOGUE.values())
               | {OFFWORLD_SECTION})
 PICKUP_REFRESH = 2.0                    # seconds between pickup message passes
