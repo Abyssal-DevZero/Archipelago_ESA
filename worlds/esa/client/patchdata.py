@@ -10,7 +10,7 @@ import struct
 from dataclasses import dataclass, field
 
 __all__ = [
-    "ALL_INDICES", "ENTRIES", "ENTRIES_BY_SLOT", "ENTRY_BY_ID", "Entry", "IconFix",
+    "ALL_INDICES", "CodePatch", "ENTRIES", "ENTRIES_BY_SLOT", "ENTRY_BY_ID", "Entry", "IconFix",
     "JMP_LEN", "KEY_INDEX_EXPECT", "KeyIndex", "NOP", "REAL_OF", "REAL_SLOTS", "REG64", "RUNTIME_STRINGS",
     "SHADOW_OF", "SLOTS", "STRING_STRIDE", "add_rdx", "mov_edx", "mov_r64_mem",
     "read_slot_for", "select_sites", "shadow_coverage", "shadow_live", "slot_disp", "test_reg8",
@@ -96,7 +96,7 @@ class KeyIndex:
     rva: int
     count: int                      # table slots
     base: int = 0                   # flag index of slot 0
-    into_object: bool = False       # write the dialogue object (the grant already copied its key)    
+    into_object: bool = False       # write the dialogue object (the grant already copied its key)
     
 OWNED_PREFIX = bytes.fromhex("B201488B8F")     # Try at fixing UI bugs, all have the same pattern of "mov dl,1 ; mov rcx,[rdi+disp32]..."
 OWNED_LEN = 9                                   # ...through the end of the disp32 
@@ -134,8 +134,8 @@ class IconFix:
 
     @property
     def owned_auto(self) -> bool:
-        return self.owned_rva is None and self.owned_site is not None  
-
+        return self.owned_rva is None and self.owned_site is not None
+        
     @property
     def branch_len(self) -> int:
         return len(test_reg8(self.flag_reg)) + 6
@@ -365,7 +365,45 @@ class Entry:
         out += [("nop", r, w, NOP * n) for r, n in self.nop_sites
                 if (w := self.site_expect.get(r)) and len(w) == n]
         return out
+        
+@dataclass
+class CodePatch:
+    """A plain in-place byte patch, tied to no flag string
 
+    Covers what the Patcher, the Attachment and /entry use of an Entry, so it can sit in ENTRIES
+    (apply, verify, revert, /entry <id> off|on)
+    """
+    id: str
+    label: str
+    patches: list                   # (rva, original, patched), same length each
+    enabled: bool = True
+    note: str = ""
+
+    slot = None
+    index = None
+    key_index = ()
+    icon = None
+
+    def __post_init__(self):
+        for site in self.patches:
+            if not (isinstance(site, tuple) and len(site) == 3 and isinstance(site[0], int)
+                    and all(isinstance(b, (bytes, bytearray)) for b in site[1:])):
+                raise ValueError(f"CodePatch({self.id!r}): patches are (rva, original, patched), got {site!r}")
+            rva, orig, new = site
+            if len(orig) != len(new) or orig == new:
+                raise ValueError(f"CodePatch({self.id!r}) at +{rva:X}: needs same-length, different bytes")
+
+    @property
+    def detour_sites(self):
+        return []
+
+    @property
+    def ready(self):
+        return self.enabled and bool(self.patches)
+
+    def sites(self):
+        """In-place patches: [(label, rva, original, patched)]."""
+        return [(f"patch #{n}", rva, o, p) for n, (rva, o, p) in enumerate(self.patches, 1)]
 
 def _monitor_reads(*rvas):
     """add rdx,0x140 (lisa) -> add rdx,0x440 (shadow lisa) at each site, in place."""
@@ -384,6 +422,32 @@ def _lisa_inline_read(flag, size1, chars, size2, ptr):
     sites = ((flag, "0FB68140{}0000"), (size1, "448B8144{}0000"), (chars, "4881C141{}0000"),
              (size2, "8B8144{}0000"), (ptr, "488B8948{}0000"))
     return [(rva, bytes.fromhex(h.format("01")), bytes.fromhex(h.format("04"))) for rva, h in sites]
+    
+def _shadow_sources(slot, *rvas):
+    """add rdx,<slot> -> add rdx,<shadow slot> at each site, in place (parser_set_source, Mid$ and the like)."""
+    real, shadow = add_rdx(slot_disp(slot)), add_rdx(slot_disp(SHADOW_OF[slot]))
+    return [(rva, real, shadow) for rva in rvas]
+
+def _shadow_inline_assign(slot, resize, flag, chars, ptr):
+    """Inlined `<slot> = <string>` with rsi = string table -> its shadow, all four accesses.
+
+    resize: lea rcx, [rsi+S]          (string object, resized to the new length)
+    flag:   movzx eax, byte [rsi+S]   (inline or heap?)
+    chars:  lea rcx, [rsi+S+1]        (inline chars, copy target)
+    ptr:    mov rcx, [rsi+S+8]        (heap pointer, copy target)
+    """
+    base, shift = slot_disp(slot), slot_disp(SHADOW_OF[slot]) - slot_disp(slot)
+    sites = ((resize, "488D8E", base), (flag, "0FB686", base), (chars, "488D8E", base + 1), (ptr, "488B8E", base + 8))
+    return [(rva, bytes.fromhex(op) + struct.pack("<i", disp), bytes.fromhex(op) + struct.pack("<i", disp + shift))
+            for rva, op, disp in sites]
+
+def _mark_sources(*rvas):
+    """add rdx,0x200 (mark) -> add rdx,0x4C0 (shadow mark) at each site, in place."""
+    return _shadow_sources(8, *rvas)
+
+def _mark_inline_assign(resize, flag, chars, ptr):
+    """Inlined `mark = <string>` -> shadow mark (+0x200 -> +0x4C0): lea/movzx [rsi+0x200], lea [rsi+0x201], mov [rsi+0x208]."""
+    return _shadow_inline_assign(8, resize, flag, chars, ptr)
 
 ENTRIES = [
     # in place
@@ -439,9 +503,13 @@ ENTRIES = [
           cave_sites=[(0x2F4F5B, 10), (0x2F5056, 10)], grant_fn=0x2F20F0,
           grant_src_cave=(0x2F21D1, 12), grant_slot_rva=0x2F2221,
           icon=IconFix(branch_rva=0x2F4FD6, icon_rva=0x2F5033, exit_rva=0x2F50D9)),
-    Entry("tavarat5b", "Plasma Shield (2nd suppression)", 2, 5,
-          suppress_fn=0x2F59C0, cave_sites=[(0x2F59E6, 10)], suppression_only=True,
-          enabled=False),
+    CodePatch("shield_no_spawn", "Plasma Shield pedestal: no ball spawn", [
+        (0x2F2303,
+         bytes.fromhex("488B8720840000BAC3FFFFFFB95A00000044897808E833C6DCFF488BD041B802000000488BCF"
+                       "E8E2CAD7FF488B9720840000448B872884000041FFC84963C88B42084803C98944CA08"),
+         bytes.fromhex("C744243801000000C744243000000000C744242800000000C744242000000000488D15F6B94E00"
+                       "488D0D8F534B0041B8FFFFFFFF488B87D8020100F2440F2C88D0000000E9DA000000")),
+    ]),
     Entry("tavarat6", "Triple Shot", 2, 6, suppress_fn=0x2F50F0, pedestal=0x8A48,
           cave_sites=[(0x2F511B, 10), (0x2F5213, 10), (0x2F52AD, 10)], grant_fn=0x2F24A0,
           grant_src_cave=(0x2F2571, 12), grant_slot_rva=0x2F25C1,
@@ -557,7 +625,31 @@ Entry("lisa_pillars", "Pillars 1-4", 5, (0x20, 0x21, 0x22, 0x23),
           suppress_rvas=[0x375866],     # add rdx,0x200 -> str_size_helper (Mid$ guard) at +37587B
           grant_fn=0x3757B0,
           grant_src_rva=0x37597A,       # add rdx,0x200 -> parser_set_source at +375981
-          grant_slot_rva=0x375A72,)      # mov edx,8 -> set_global_string at +375A7A
+          grant_slot_rva=0x375A72,),     # mov edx,8 -> set_global_string at +375A7A
+
+    #HIDDEN EYE SIGNS
+    # The 13 checks are mark[11..23] in sign order, no gap where the sign numbering skips 8; the spot the game
+    Entry("mark_signs", "Code Spots", 8, (11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23),
+          suppress_fn=0x3ABC40, grant_fn=0x3AB400,
+          disp_sites=(
+              _mark_sources(0x3AB781, 0x3B8891)                                 # parser_set_source(mark), both entry events
+              + _mark_inline_assign(0x3AB815, 0x3AB821, 0x3AB828, 0x3AB835)    # fn 3AB400: mark = parser result
+              + _mark_inline_assign(0x3B8925, 0x3B8931, 0x3B8938, 0x3B8945)    # fn 3B8520: same, second entry event
+              + _mark_sources(0x3ABC89, 0x3ABE79)                               # Mid$(mark, B+11) = done: look (3ABC40), input removal (3ABE30)
+          ),
+          note="index 24 (Sign 8, entered by the game) stays out on purpose: the client mirrors it"),
+
+    # MWYA Pillar ("mwya" at 22-16). Two twin events in the pillar room, both on the pillar object
+    Entry("mwya_pillar", "MWYA Pillar", 6, 2,
+          grant_fn=0x3B3C00,
+          grant_src_rva=0x3B3F2F, grant_slot_rva=0x3B3F6A,      # fn 3B3C00: add rdx,0x180 / mov edx,6
+          extra_grants=[(0x3B998B, 0x3B99C6)],                  # fn 3B96B0, the twin
+          disp_sites=_shadow_sources(6, 0x3B3D52, 0x3B9803)),    # the guards, one per event
+    # 100% gate at the maze ending. Forcing the correct fork
+    CodePatch("ending_100", "Maze ending: no 100% check", [
+        (0x3B038C, bytes.fromhex("0F82D6000000"), bytes.fromhex("0F80D6000000")),     # fn 3B02A0: jb  -> jo
+        (0x3B055C, bytes.fromhex("0F86D6000000"), bytes.fromhex("0F81D6000000")),     # fn 3B0470: jbe -> jno
+    ]),
 ]
 
 ENTRY_BY_ID = {e.id: e for e in ENTRIES}
