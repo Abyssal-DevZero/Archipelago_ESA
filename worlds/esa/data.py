@@ -67,8 +67,29 @@ MONITOR_INDEX = {
     "Password": 50,
 }
 
+# Code spot items: receiving one enters its spot for the maze (no item for Sign 8, the game enters it)
+SIGN_INDEX = {
+    "Sign 1": 51,
+    "Sign 2": 52,
+    "Sign 3": 53,
+    "Sign 4": 54,
+    "Sign 5": 55,
+    "Sign 6": 56,
+    "Sign 7": 57,
+    "Sign 9": 59,
+    "Sign 10": 60,
+    "Sign 11": 61,
+    "Sign 12": 62,
+    "Sign 13": 63,
+    "Sign 14": 64,
+}
+
+# MWYA Pillar item: receiving it opens the labyrinth (superjump[2] = 'T'). The pillar itself is then only a check.
+PILLAR_ITEM = "MWYA Pillar"
+PILLAR_INDEX = {PILLAR_ITEM: 65}
+
 FILLER_ITEM_NAME = "Data Fragment"
-ALL_ITEM_INDEX = {**ITEMDATA_INDEX, **KEY_INDEX, **CROWN_INDEX, **MONITOR_INDEX}
+ALL_ITEM_INDEX = {**ITEMDATA_INDEX, **KEY_INDEX, **CROWN_INDEX, **MONITOR_INDEX, **SIGN_INDEX, **PILLAR_INDEX}
 
 ITEM_NAME_TO_ID = {name: BASE_ID + index for name, index in ALL_ITEM_INDEX.items()}
 ITEM_NAME_TO_ID[FILLER_ITEM_NAME] = FILLER_BASE + 0
@@ -80,64 +101,91 @@ HEALTH_PACKS = [name for name, i in ITEMDATA_INDEX.items() if 15 <= i <= 22]
 DISKETTES = [name for name, i in ITEMDATA_INDEX.items() if 23 <= i <= 34]
 KEYS = list(KEY_INDEX)
 MONITORS = list(MONITOR_INDEX)
+SIGN_ITEMS = list(SIGN_INDEX)
+
+#==signs==
+# Postgame code spots for the maze ending. Game writed SIGN_DONE when "esa" typed at the correct spots
+SIGN_DONE = "5"
+FREE_SIGN_FLAG = {
+    "Sign Location 8":                    (8, 24),
+}
+# MWYA pillar @22-16: typing "mwya" writes PILLAR_DONE into superjump[2], the labyrinth opens on that flag.
+MAZE_PILLAR = "MWYA Pillar (22-16)"
+PILLAR_DONE = "T"
 
 #==locations==
 LOCATION_NAME_TO_ID = {
-    "Jump Booster Spot": 1,
-    "Hookshot Spot": 2,
-    "Teleport Access Spot": 3,
-    "Propeller Spot": 4,
-    "Charge Shot Spot": 5,
-    "Dash Booster H Spot": 6,
-    "Heat-Resistant suit Spot": 7,
-    "Gold Keycard Spot": 8,
-    "Dash Booster V Spot": 9,
-    "Rough Map Spot": 10,
-    "Triple Shot Spot": 11,
-    "Plasma Shield Spot": 12,
-    "Supercharge Module Spot": 13,
-    "Dash Booster X Spot": 14,
+    "Jump Booster Spot (13-13)": 1,
+    "Hookshot Spot (26-10)": 2,
+    "Teleport Access Spot (11-19)": 3,
+    "Propeller Spot (01-20)": 4,
+    "Charge Shot Spot (00-08)": 5,
+    "Dash Booster H Spot (05-03)": 6,
+    "Heat-Resistant suit Spot (25-08)": 7,
+    "Gold Keycard Spot (29-19)": 8,
+    "Dash Booster V Spot (11-07)": 9,
+    "Rough Map Spot (19-12)": 10,
+    "Triple Shot Spot (15-04)": 11,
+    "Plasma Shield Spot (03-15)": 12,
+    "Supercharge Module Spot (28-15)": 13,
+    "Dash Booster X Spot (22-12)": 14,
     "Bike Spot": 15,
 
-    "Health Pack Beetle Spot": 21,
-    "Health Pack SandTop Spot": 22,
-    "Health Pack SandBottom Spot": 23,
-    "Health Pack FireLow Spot": 24,
-    "Health Pack FireHigh Spot": 25,
-    "Health Pack Temple Spot": 26,
-    "Health Pack Ship Spot": 27,
-    "Health Pack Water Spot": 28,
+    "Health Pack Beetle Spot (15-12)": 21,
+    "Health Pack SandTop Spot (11-13)": 22,
+    "Health Pack SandBottom Spot (06-16)": 23,
+    "Health Pack FireLow Spot (26-14)": 24,
+    "Health Pack FireHigh Spot (26-12)": 25,
+    "Health Pack Temple Spot (23-04)": 26,
+    "Health Pack Ship Spot (31-24)": 27,
+    "Health Pack Water Spot (02-13)": 28,
 
-    "Diskette Water Spot": 31,
-    "Diskette Depthsmaze Spot": 32,
-    "Diskette Caves Spot": 33,
-    "Diskette Jungle Spot": 34,
-    "Diskette TempleLeft Spot": 35,
-    "Diskette TempleTall Spot": 36,
-    "Diskette FireLava Spot": 37,
-    "Diskette FireTop Spot": 38,
-    "Diskette Security Spot": 39,
-    "Diskette SandBot Spot": 40,
-    "Diskette SandMid Spot": 41,
-    "Diskette Ship Spot": 42,
+    "Diskette Water Spot (04-13)": 31,
+    "Diskette Depthsmaze Spot (17-16)": 32,
+    "Diskette Caves Spot (18-10)": 33,
+    "Diskette Jungle Spot (17-00)": 34,
+    "Diskette TempleLeft Spot (23-07)": 35,
+    "Diskette TempleTall Spot (29-03)": 36,
+    "Diskette FireLava Spot (25-15)": 37,
+    "Diskette FireTop Spot (23-09)": 38,
+    "Diskette Security Spot (19-18)": 39,
+    "Diskette SandBot Spot (07-18)": 40,
+    "Diskette SandMid Spot (10-14)": 41,
+    "Diskette Ship Spot (25-19)": 42,
 
     # Four keys
     "Key Mwyah Spot": 51,
-    "Key Fire Spot": 52,
-    "Key Caves Spot": 53,
-    "Key Temple Spot": 54,
+    "Key Fire Spot (19-13)": 52,
+    "Key Caves Spot (15-09)": 53,
+    "Key Temple Spot (22-02)": 54,
 
     # text monitor
-    "Power Monitor": 61,
-    "Gate Alpha Monitor": 62,
-    "Gate Beta Monitor": 63,
-    "Gate Gamma Monitor": 64,
-    "Gate Delta Monitor": 65,
-    "Pillar 1 Monitor": 66,
-    "Pillar 2 Monitor": 67,
-    "Pillar 3 Monitor": 68,
-    "Pillar 4 Monitor": 69,
+    "Power Monitor (19-17)": 61,
+    "Gate Alpha Monitor (11-19)": 62,
+    "Gate Beta Monitor (19-19)": 63,
+    "Gate Gamma Monitor (11-20)": 64,
+    "Gate Delta Monitor (19-20)": 65,
+    "Pillar 1 Monitor (14-08)": 66,
+    "Pillar 2 Monitor (20-10)": 67,
+    "Pillar 3 Monitor (12-12)": 68,
+    "Pillar 4 Monitor (17-08)": 69,
     "Password Monitor": 70,
+
+    # postgame code spots (88 stays free for Sign Location 8)
+    "Sign Location 1 (03-08)": 81,
+    "Sign Location 2 (21-14)": 82,
+    "Sign Location 3 (Planet Surface)": 83,
+    "Sign Location 4 (07-11)": 84,
+    "Sign Location 5 (11-06)": 85,
+    "Sign Location 6 (12-18)": 86,
+    "Sign Location 7 (15-22)": 87,
+    "Sign Location 9 (Death-Laser Room)": 89,
+    "Sign Location 10 (24-20)": 90,
+    "Sign Location 11 (26-17)": 91,
+    "Sign Location 12 (18-01)": 92,
+    "Sign Location 13 (28-08)": 93,
+    "Sign Location 14 (25-00)": 94,
+    "MWYA Pillar (22-16)": 95,
 }
 
 ID_TO_LOCATION = {loc_id: name for name, loc_id in LOCATION_NAME_TO_ID.items()}
@@ -145,68 +193,119 @@ ID_TO_LOCATION = {loc_id: name for name, loc_id in LOCATION_NAME_TO_ID.items()}
 #==flags==
 LOCATION_FLAG = {
     # abilities
-    "Jump Booster Spot":        (6, 0),
+    "Jump Booster Spot (13-13)":        (6, 0),
     "Bike Spot":                (6, 1),
-    "Rough Map Spot":           (2, 0),
-    "Hookshot Spot":            (2, 1),
-    "Propeller Spot":           (2, 2),
-    "Charge Shot Spot":         (2, 3),
-    "Heat-Resistant suit Spot": (2, 4),
-    "Plasma Shield Spot":       (2, 5),
-    "Triple Shot Spot":         (2, 6),
-    "Supercharge Module Spot":  (2, 8),
-    "Gold Keycard Spot":        (2, 9),
-    "Dash Booster H Spot":      (1, 0),
-    "Dash Booster V Spot":      (1, 1),
-    "Dash Booster X Spot":      (5, 2),
-    "Teleport Access Spot":     (5, 24),
+    "Rough Map Spot (19-12)":           (2, 0),
+    "Hookshot Spot (26-10)":            (2, 1),
+    "Propeller Spot (01-20)":           (2, 2),
+    "Charge Shot Spot (00-08)":         (2, 3),
+    "Heat-Resistant suit Spot (25-08)": (2, 4),
+    "Plasma Shield Spot (03-15)":       (2, 5),
+    "Triple Shot Spot (15-04)":         (2, 6),
+    "Supercharge Module Spot (28-15)":  (2, 8),
+    "Gold Keycard Spot (29-19)":        (2, 9),
+    "Dash Booster H Spot (05-03)":      (1, 0),
+    "Dash Booster V Spot (11-07)":      (1, 1),
+    "Dash Booster X Spot (22-12)":      (5, 2),
+    "Teleport Access Spot (11-19)":     (5, 24),
     # health packs
-    "Health Pack Beetle Spot":     (0, 0),
-    "Health Pack SandTop Spot":    (0, 1),
-    "Health Pack FireLow Spot":    (0, 2),
-    "Health Pack Temple Spot":     (0, 3),
-    "Health Pack SandBottom Spot": (0, 4),
-    "Health Pack Ship Spot":       (0, 5),
-    "Health Pack Water Spot":      (0, 6),
-    "Health Pack FireHigh Spot":   (0, 7),
+    "Health Pack Beetle Spot (15-12)":     (0, 0),
+    "Health Pack SandTop Spot (11-13)":    (0, 1),
+    "Health Pack FireLow Spot (26-14)":    (0, 2),
+    "Health Pack Temple Spot (23-04)":     (0, 3),
+    "Health Pack SandBottom Spot (06-16)": (0, 4),
+    "Health Pack Ship Spot (31-24)":       (0, 5),
+    "Health Pack Water Spot (02-13)":      (0, 6),
+    "Health Pack FireHigh Spot (26-12)":   (0, 7),
     # diskettes
-    "Diskette Water Spot":      (4, 0),
-    "Diskette Depthsmaze Spot": (4, 1),
-    "Diskette Caves Spot":      (4, 2),
-    "Diskette Jungle Spot":     (4, 3),
-    "Diskette TempleLeft Spot": (4, 4),
-    "Diskette FireLava Spot":   (4, 5),
-    "Diskette TempleTall Spot": (4, 6),
-    "Diskette Security Spot":   (4, 7),
-    "Diskette SandMid Spot":    (4, 8),
-    "Diskette SandBot Spot":    (4, 9),
-    "Diskette FireTop Spot":    (4, 10),
-    "Diskette Ship Spot":       (4, 11),
+    "Diskette Water Spot (04-13)":      (4, 0),
+    "Diskette Depthsmaze Spot (17-16)": (4, 1),
+    "Diskette Caves Spot (18-10)":      (4, 2),
+    "Diskette Jungle Spot (17-00)":     (4, 3),
+    "Diskette TempleLeft Spot (23-07)": (4, 4),
+    "Diskette FireLava Spot (25-15)":   (4, 5),
+    "Diskette TempleTall Spot (29-03)": (4, 6),
+    "Diskette Security Spot (19-18)":   (4, 7),
+    "Diskette SandMid Spot (10-14)":    (4, 8),
+    "Diskette SandBot Spot (07-18)":    (4, 9),
+    "Diskette FireTop Spot (23-09)":    (4, 10),
+    "Diskette Ship Spot (25-19)":       (4, 11),
     # Keys
     "Key Mwyah Spot":  (5, 38),
-    "Key Fire Spot":   (5, 39),
-    "Key Caves Spot":  (5, 40),
-    "Key Temple Spot": (5, 41),
+    "Key Fire Spot (19-13)":   (5, 39),
+    "Key Caves Spot (15-09)":  (5, 40),
+    "Key Temple Spot (22-02)": (5, 41),
     # text monitors
-    "Power Monitor":      (5, 8),
-    "Gate Alpha Monitor": (5, 18),
-    "Gate Beta Monitor":  (5, 19),
-    "Gate Gamma Monitor": (5, 20),
-    "Gate Delta Monitor": (5, 21),
-    "Pillar 1 Monitor":   (5, 32),
-    "Pillar 2 Monitor":   (5, 33),
-    "Pillar 3 Monitor":   (5, 34),
-    "Pillar 4 Monitor":   (5, 35),
+    "Power Monitor (19-17)":      (5, 8),
+    "Gate Alpha Monitor (11-19)": (5, 18),
+    "Gate Beta Monitor (19-19)":  (5, 19),
+    "Gate Gamma Monitor (11-20)": (5, 20),
+    "Gate Delta Monitor (19-20)": (5, 21),
+    "Pillar 1 Monitor (14-08)":   (5, 32),
+    "Pillar 2 Monitor (20-10)":   (5, 33),
+    "Pillar 3 Monitor (12-12)":   (5, 34),
+    "Pillar 4 Monitor (17-08)":   (5, 35),
     # password monitor (mark)
     "Password Monitor":   (8, 2),
+    # code spots (mark), one entry each in order, no gap for Sign 8 (mark[24], FREE_SIGN_FLAG)
+    "Sign Location 1 (03-08)":            (8, 11),
+    "Sign Location 2 (21-14)":            (8, 12),
+    "Sign Location 3 (Planet Surface)":   (8, 13),
+    "Sign Location 4 (07-11)":            (8, 14),
+    "Sign Location 5 (11-06)":            (8, 15),
+    "Sign Location 6 (12-18)":            (8, 16),
+    "Sign Location 7 (15-22)":            (8, 17),
+    "Sign Location 9 (Death-Laser Room)": (8, 18),
+    "Sign Location 10 (24-20)":           (8, 19),
+    "Sign Location 11 (26-17)":           (8, 20),
+    "Sign Location 12 (18-01)":           (8, 21),
+    "Sign Location 13 (28-08)":           (8, 22),
+    "Sign Location 14 (25-00)":           (8, 23),
+    # MWYA pillar (superjump), read from the real slot (READ_REAL_FLAG)
+    "MWYA Pillar (22-16)":                (6, 2),
 }
 
 # Locations whose check is still read from the real flag, so a save that already has it set sends it on connect
 COUPLED_LOCATIONS = set()
 
 # Because it would be too simple to switch between 0 and 1
-CHECK_CHAR = {"Bike Spot": "B"}
+CHECK_CHAR = {
+    "Bike Spot": "B",
+    "Sign Location 1 (03-08)":            SIGN_DONE,
+    "Sign Location 2 (21-14)":            SIGN_DONE,
+    "Sign Location 3 (Planet Surface)":   SIGN_DONE,
+    "Sign Location 4 (07-11)":            SIGN_DONE,
+    "Sign Location 5 (11-06)":            SIGN_DONE,
+    "Sign Location 6 (12-18)":            SIGN_DONE,
+    "Sign Location 7 (15-22)":            SIGN_DONE,
+    "Sign Location 9 (Death-Laser Room)": SIGN_DONE,
+    "Sign Location 10 (24-20)":           SIGN_DONE,
+    "Sign Location 11 (26-17)":           SIGN_DONE,
+    "Sign Location 12 (18-01)":           SIGN_DONE,
+    "Sign Location 13 (28-08)":           SIGN_DONE,
+    "Sign Location 14 (25-00)":           SIGN_DONE,
+    "MWYA Pillar (22-16)":                PILLAR_DONE,
+}
 CHECK_CHAR_BY_ID = {LOCATION_NAME_TO_ID[n]: c for n, c in CHECK_CHAR.items()}
+
+# every code spot that is a check, in table order
+SIGN_LOCATIONS = tuple(name for name, char in CHECK_CHAR.items() if char == SIGN_DONE)
+
+# Count only when the flag holds exactly their CHECK_CHAR. every other location counts on anything but '0'.
+CHECK_EXACT = frozenset(SIGN_LOCATIONS) | {MAZE_PILLAR}
+CHECK_EXACT_IDS = frozenset(LOCATION_NAME_TO_ID[n] for n in CHECK_EXACT)
+
+# locations that only exist with include_signs (or the maze goal)
+CODE_SPOT_LOCATIONS = (*SIGN_LOCATIONS, MAZE_PILLAR)
+
+# Checks read from the real slot while their own patch is not live, even where a computed patch entry covers
+READ_REAL_FLAG = frozenset({MAZE_PILLAR})
+
+# Flags no item owns: whichever copy the game writes (real or shadow), the client sets both.
+# name -> (real slot, index, char)
+MIRROR_FLAGS = {
+    "Sign Location 8": (8, 24, SIGN_DONE),
+}
 
 # item name -> (real slot, index, character the vanilla grant writes)
 ABILITY_FLAG = {
@@ -241,6 +340,22 @@ MONITOR_FLAG = {
     "Password":   (8, 2, "1"),
 }
 
+# Sign items: the real mark index the maze reads (the spot's own check goes to the shadow once redirected)
+SIGN_FLAG = {
+    "Sign 1":  (8, 11, SIGN_DONE),
+    "Sign 2":  (8, 12, SIGN_DONE),
+    "Sign 3":  (8, 13, SIGN_DONE),
+    "Sign 4":  (8, 14, SIGN_DONE),
+    "Sign 5":  (8, 15, SIGN_DONE),
+    "Sign 6":  (8, 16, SIGN_DONE),
+    "Sign 7":  (8, 17, SIGN_DONE),
+    "Sign 9":  (8, 18, SIGN_DONE),
+    "Sign 10": (8, 19, SIGN_DONE),
+    "Sign 11": (8, 20, SIGN_DONE),
+    "Sign 12": (8, 21, SIGN_DONE),
+    "Sign 13": (8, 22, SIGN_DONE),
+    "Sign 14": (8, 23, SIGN_DONE),
+}
 # Four Keys
 KEY_FLAG = {
     "Key Mwyah":  (5, 0x26, "1"),
@@ -249,8 +364,11 @@ KEY_FLAG = {
     "Key Temple": (5, 0x29, "1"),
 }
 
+# MWYA Pillar item: the superjump[2] the labyrinth reads (the pillar's own check goes to the shadow once redirected)
+PILLAR_FLAG = {PILLAR_ITEM: (6, 2, PILLAR_DONE)}
+
 # everything push_inventory projects onto a real slot, character included
-GRANT_FLAG = {**ABILITY_FLAG, **MONITOR_FLAG, **KEY_FLAG}
+GRANT_FLAG = {**ABILITY_FLAG, **MONITOR_FLAG, **KEY_FLAG, **SIGN_FLAG, **PILLAR_FLAG}
 
 DISKETTE_INDEX = {
     "Diskette Water": 0, "Diskette Depthsmaze": 1, "Diskette Caves": 2,
@@ -263,3 +381,5 @@ HEALTH_ITEMS = set(HEALTH_PACKS)
 # Endings
 VIRUS_DEFEATED_FLAG = (5, 25)
 MWYAH_DEFEATED_FLAG = (5, 37)
+MAZE_ENDING_FLAG = (8, 27, "B")     # mark[27]: '0' -> 'B' when the maze ending is reached (mark[2] '1' -> '2' too)
+# Maze state, for reference: mark[25] is 'b' while the ghost chases the player and 'y' once it is dead,
