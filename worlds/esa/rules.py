@@ -7,6 +7,7 @@ from functools import reduce
 from typing import TYPE_CHECKING
 
 from rule_builder.rules import Has, HasAll, HasGroupUnique, Rule
+from .data import MAZE_PILLAR, PILLAR_ITEM, SIGN_ITEMS 
 
 from . import logic
 from .options import Goal
@@ -27,6 +28,7 @@ TOKEN_RULES: dict[str, Rule] = {
     "bike": Has("The Bike"),
     "charge": Has("Charge Shot") | Has("Supercharge Module"),
     "gold": Has("Gold Keycard"),
+    "map": Has("Rough Map"), 
     "heatsuit": Has("Heat-Resistant Suit"),
     "propeller": Has("Propeller"),
     "triple": Has("Triple Shot"),
@@ -36,11 +38,13 @@ TOKEN_RULES: dict[str, Rule] = {
     "xh": HasAll("Dash Booster H", "Dash Booster X"),
     "attack": Has("Charge Shot") | Has("Supercharge Module") | Has("Plasma Shield") | Has("The Bike"),
     "tpaccess": Has("Teleport Access"),
+    "jungletp": Has("Teleport Access") & Has(logic.TELEPORT_EVENTS[logic.JUNGLE_TELEPORT_PAD]), 
     "supercharge": Has("Supercharge Module"),
     "switch": Has(logic.FLAG_TOKEN_EVENTS["switch"]),
     "classa": Has(logic.FLAG_TOKEN_EVENTS["classa"]),
     "poweron": Has("Power"),
     "password": Has("Password"),
+    "keys": HasGroupUnique("Keys", count=4),
     "gates": HasGroupUnique("Gates", count=4),
     "pillars": HasGroupUnique("Pillars", count=4),
     "disks": HasGroupUnique("Diskettes", count=12),
@@ -56,10 +60,10 @@ CLASS_A_NODE = "115"
 BIKE_SPOT = "Bike Spot"
 DASH_BOOSTERS = ("Dash Booster H", "Dash Booster V", "Dash Booster X")
 GATE_MONITORS = (
-    "Gate Alpha Monitor",
-    "Gate Beta Monitor",
-    "Gate Gamma Monitor",
-    "Gate Delta Monitor",
+    "Gate Alpha Monitor (11-19)",
+    "Gate Beta Monitor (19-19)",
+    "Gate Gamma Monitor (11-20)",
+    "Gate Delta Monitor (19-20)",
 )
 def base_game() -> Rule:
     """Defeat the virus: Power, all four Gates, and Class A unlocked."""
@@ -77,20 +81,25 @@ def rule_for_term(term: frozenset[str]) -> Rule | None:
         rules = [TOKEN_RULES[token] for token in sorted(term)]
     except KeyError as error:
         raise KeyError(
-            f"glitchlesslogic.ini uses token {error.args[0]!r}, which rules.py does not define"
+            f"logic uses token {error.args[0]!r}, which rules.py does not define"
         ) from error
     return reduce(lambda left, right: left & right, rules)
 
 def rule_for_edge(edge: logic.Edge) -> Rule | None:
     """OR the products together. Returns None when the edge is free."""
-    if edge.is_free:
+    return rule_for_terms(edge.terms)
+    
+def rule_for_terms(terms: tuple[frozenset[str], ...]) -> Rule | None:
+    """OR the products together. Returns None when one of them is free."""
+    if any(not term for term in terms):
         return None
-    term_rules = [rule_for_term(term) for term in edge.terms]
-    return reduce(lambda left, right: left | right, term_rules)
+    return reduce(lambda left, right: left | right, [rule_for_term(term) for term in terms])
 
 def set_all_rules(world: ESAWorld) -> None:
     set_all_entrance_rules(world)
     set_gate_monitor_rules(world)
+    if world.signs_included:
+        set_sign_rules(world)
     set_completion_rule(world)
     set_bike_spot_rule(world)
 
@@ -123,9 +132,27 @@ def set_gate_monitor_rules(world: ESAWorld) -> None:
     """Puts Power before Gates in logic"""
     for name in GATE_MONITORS:
         world.set_rule(world.get_location(name), TOKEN_RULES["poweron"])
+        
+def maze_pillar() -> Rule:
+    """MWYA Pillar check: every Sign item received (the real mark it checks) and the route from the notes."""
+    return HasAll(*SIGN_ITEMS) & rule_for_terms(logic.MAZE_PILLAR_TERMS)
+
+def set_sign_rules(world: ESAWorld) -> None:
+    """Code spots: item rules straight from the notes, no graph behind them. The MWYA Pillar with them."""
+    for name, terms in logic.SIGN_TERMS.items():
+        rule = rule_for_terms(terms)
+        if rule is not None:
+            world.set_rule(world.get_location(name), rule)
+    world.set_rule(world.get_location(MAZE_PILLAR), maze_pillar())
+
+def maze_ending() -> Rule:
+    """Sets all Signs and MWYA Pillar as requirements."""
+    return HasAll(*SIGN_ITEMS, PILLAR_ITEM) & rule_for_terms(logic.MAZE_PILLAR_TERMS)
 
 def set_completion_rule(world: ESAWorld) -> None:
-    if world.options.goal == Goal.option_postgame:
+    if world.options.goal == Goal.option_maze:
+        world.set_completion_rule(maze_ending())    
+    elif world.options.goal == Goal.option_postgame:
         # Second ending: defeat Mwyah. The Dash Boosters are required on top so the randomizer has to put all three in reach before the goal.
         world.set_completion_rule(
             base_game()
