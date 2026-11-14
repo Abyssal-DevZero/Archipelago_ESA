@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from BaseClasses import Location
 
 from . import items, logic
-from .data import LOCATION_NAME_TO_ID
+from .data import LOCATION_NAME_TO_ID, MAZE_PILLAR
 
 if TYPE_CHECKING:
     from .world import ESAWorld
@@ -20,6 +20,8 @@ class ESALocation(Location):
 
 def create_all_locations(world: ESAWorld) -> None:
     create_regular_locations(world)
+    if world.signs_included:
+        create_sign_locations(world)
     create_events(world)
 
 
@@ -28,6 +30,11 @@ def create_regular_locations(world: ESAWorld) -> None:
         region = world.get_region(logic.NODES[node_id].region)
         region.add_locations({location_name: LOCATION_NAME_TO_ID[location_name]}, ESALocation)
 
+def create_sign_locations(world: ESAWorld) -> None:
+    """Code spots and the MWYA Pillar sit in the start region. their whole route is in the location rule (rules.set_sign_rules)."""
+    region = world.get_region(logic.SIGN_REGION)
+    names = (*logic.SIGN_TERMS, MAZE_PILLAR)
+    region.add_locations({name: LOCATION_NAME_TO_ID[name] for name in names}, ESALocation)
 
 def create_events(world: ESAWorld) -> None:
     """The only events left in the world.
