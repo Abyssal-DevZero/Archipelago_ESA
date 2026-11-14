@@ -14,22 +14,26 @@ from .data import (
     ITEM_NAME_TO_ID,
     KEYS,
     MONITORS,
+    PILLAR_ITEM,
+    SIGN_ITEMS,
 )
 
+from .options import Goal
 #Abilities that open up checks
 LOGICAL_ABILITIES = {
     "Jump Booster",        # double jump
-    "Hookshot",            
+    "Hookshot",
     "Dash Booster V",      # vertical dash
     "Dash Booster H",      # horizontal dash
     "Dash Booster X",      # infinite dash
     "The Bike",            # "Troll" item from the dev, insta kills enemies
-    "Charge Shot",         
-    "Gold Keycard",        
-    "Heat-Resistant Suit", 
+    "Charge Shot",
+    "Gold Keycard",
+    "Heat-Resistant Suit",
     "Propeller",           # Water movement
-    "Triple Shot",         
-    "Teleport Access",     
+    "Triple Shot",
+    "Teleport Access",
+    "Rough Map",           # Needed for Maze ending
 }
 
 DEFAULT_ITEM_CLASSIFICATIONS: dict[str, ItemClassification] = {}
@@ -42,7 +46,6 @@ for _name in ABILITIES:
 
 for _name in HEALTH_PACKS:
     DEFAULT_ITEM_CLASSIFICATIONS[_name] = ItemClassification.progression
- #Making Diskettes not progression items, since they are not necessarely needed for progression, only for convenience Dash Booster X
 for _name in DISKETTES:
     DEFAULT_ITEM_CLASSIFICATIONS[_name] = ItemClassification.progression
 for _name in KEYS:
@@ -51,9 +54,13 @@ for _name in MONITORS:
     DEFAULT_ITEM_CLASSIFICATIONS[_name] = ItemClassification.progression
 for _name in CROWN_INDEX:
     DEFAULT_ITEM_CLASSIFICATIONS[_name] = ItemClassification.useful
+for _name in SIGN_ITEMS:
+    DEFAULT_ITEM_CLASSIFICATIONS[_name] = ItemClassification.progression
 
-#No real junk items in ESA, let's call it Data Fragment, does nothing
-DEFAULT_ITEM_CLASSIFICATIONS["Data Fragment"] = ItemClassification.filler 
+DEFAULT_ITEM_CLASSIFICATIONS[PILLAR_ITEM] = ItemClassification.progression   # opens the labyrinth (maze goal)
+
+#No real junk items in ESA, but AP requires them for fill(). So let's call it Data Fragment, does nothing
+DEFAULT_ITEM_CLASSIFICATIONS["Data Fragment"] = ItemClassification.filler
 
 class ESAItem(Item):
     game = "Environmental Station Alpha"
@@ -62,7 +69,10 @@ def get_random_filler_item_name(world: ESAWorld) -> str:
     return "Data Fragment"
 
 def create_item_with_correct_classification(world: ESAWorld, name: str) -> ESAItem:
-    return ESAItem(name, DEFAULT_ITEM_CLASSIFICATIONS[name], ITEM_NAME_TO_ID[name], world.player)
+    classification = DEFAULT_ITEM_CLASSIFICATIONS[name]
+    if name == PILLAR_ITEM and world.options.goal != Goal.option_maze:
+        classification = ItemClassification.useful     # the labyrinth holds no check, only the maze goal needs it
+    return ESAItem(name, classification, ITEM_NAME_TO_ID[name], world.player)
 
 def create_event_item(world: ESAWorld, name: str) -> ESAItem:
     return ESAItem(name, ItemClassification.progression, None, world.player)
@@ -88,6 +98,10 @@ def create_all_items(world: ESAWorld) -> None:
         itempool.append(world.create_item(name))
     for name in KEYS:
         itempool.append(world.create_item(name))
+    if world.signs_included:
+        for name in SIGN_ITEMS:
+            itempool.append(world.create_item(name))
+        itempool.append(world.create_item(PILLAR_ITEM))
         
     number_of_items = len(itempool)
     number_of_unfilled_locations = len(world.multiworld.get_unfilled_locations(world.player))
@@ -109,5 +123,6 @@ ITEM_NAME_GROUPS = {
     "Monitors": set(MONITORS),
     "Gates": {n for n in MONITORS if n.startswith("Gate ")},
     "Pillars": {n for n in MONITORS if n.startswith("Pillar ")},
-
+    "Signs": set(SIGN_ITEMS),
+    "Maze": {*SIGN_ITEMS, PILLAR_ITEM},
 }
