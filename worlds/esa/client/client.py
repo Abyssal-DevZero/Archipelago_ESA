@@ -17,9 +17,10 @@ from NetUtils import ClientStatus
 from . import memory as mem
 from .memory import DETACHED, READY, SLOTS, hpmax_for
 from ..data import (
-    ABILITY_FLAG, CHECK_CHAR_BY_ID, COUPLED_LOCATIONS, DISKETTE_INDEX, DISKETTES, GRANT_FLAG,
-    HEALTH_ITEMS, HEALTH_PACKS, ID_TO_LOCATION, ITEM_ID_TO_NAME, KEYS, LOCATION_FLAG,
-    LOCATION_NAME_TO_ID, MONITOR_FLAG, MWYAH_DEFEATED_FLAG, VIRUS_DEFEATED_FLAG,
+    ABILITY_FLAG, CHECK_CHAR, CHECK_CHAR_BY_ID, CHECK_EXACT_IDS, CODE_SPOT_LOCATIONS, DISKETTE_INDEX, DISKETTES,
+    FREE_SIGN_FLAG, GRANT_FLAG, HEALTH_ITEMS, HEALTH_PACKS, ID_TO_LOCATION, ITEM_ID_TO_NAME, KEYS, LOCATION_FLAG,
+    LOCATION_NAME_TO_ID, MAZE_ENDING_FLAG, MAZE_PILLAR, MIRROR_FLAGS, MONITOR_FLAG, MWYAH_DEFEATED_FLAG,
+    PILLAR_FLAG, PILLAR_ITEM, READ_REAL_FLAG, SIGN_DONE, SIGN_FLAG, SIGN_LOCATIONS, VIRUS_DEFEATED_FLAG,
 )
 from ..options import Goal
 
@@ -30,29 +31,29 @@ BIKE_CHARS = {(6, 1): {"B", "P"}}       # The Bike: B owned, P owned and riding
 GOAL_FLAGS = {
     Goal.option_base_game: VIRUS_DEFEATED_FLAG,
     Goal.option_postgame: MWYAH_DEFEATED_FLAG,
+    Goal.option_maze: MAZE_ENDING_FLAG,
 }
 
 # location -> (patch entry whose grant shows the pickup message, vanilla Dialogue.lar section)
 PICKUP_DIALOGUE = {
-    "Rough Map Spot":           ("tavarat0", "mapget"),
-    "Hookshot Spot":            ("tavarat1", "hookget"),
-    "Propeller Spot":           ("tavarat2", "swimget"),
-    "Charge Shot Spot":         ("tavarat3", "shotget"),
-    "Heat-Resistant suit Spot": ("tavarat4", "suitget"),
-    "Plasma Shield Spot":       ("tavarat5", "shieldget"),
-    "Triple Shot Spot":         ("tavarat6", "tripleget"),
-    "Supercharge Module Spot":  ("tavarat8", "superget"),
-    "Gold Keycard Spot":        ("tavarat9", "keyget"),
-    "Dash Booster H Spot":      ("bombs0", "bombget"),
-    "Dash Booster V Spot":      ("bombs1", "vertget"),
-    "Dash Booster X Spot":      ("lisa2", "endlessget"),
-    "Teleport Access Spot":     ("lisa24", "teleget"),
-    "Jump Booster Spot":        ("superjump_all", "jumpget"),
+    "Rough Map Spot (19-12)":           ("tavarat0", "mapget"),
+    "Hookshot Spot (26-10)":            ("tavarat1", "hookget"),
+    "Propeller Spot (01-20)":           ("tavarat2", "swimget"),
+    "Charge Shot Spot (00-08)":         ("tavarat3", "shotget"),
+    "Heat-Resistant suit Spot (25-08)": ("tavarat4", "suitget"),
+    "Plasma Shield Spot (03-15)":       ("tavarat5", "shieldget"),
+    "Triple Shot Spot (15-04)":         ("tavarat6", "tripleget"),
+    "Supercharge Module Spot (28-15)":  ("tavarat8", "superget"),
+    "Gold Keycard Spot (29-19)":        ("tavarat9", "keyget"),
+    "Dash Booster H Spot (05-03)":      ("bombs0", "bombget"),
+    "Dash Booster V Spot (11-07)":      ("bombs1", "vertget"),
+    "Dash Booster X Spot (22-12)":      ("lisa2", "endlessget"),
+    "Teleport Access Spot (11-19)":     ("lisa24", "teleget"),
+    "Jump Booster Spot (13-13)":        ("superjump_all", "jumpget"),
 }
 
 # Shared grants, one key per pedestal via key tables: patch entry -> vanilla section.
-# Table slot i belongs to the location whose flag is (entry slot, base + i). An empty
-# section leaves the grant's own message.
+# Table slot i belongs to the location whose flag is (entry slot, base + i). An empty section leaves the grant's own message.
 INDEXED_DIALOGUE = {
     "health_all": "tankget",
     "bonus_all": "diskget",
@@ -71,20 +72,20 @@ def table_slots(entry_id: str):
                 yield k, i, loc_id
 
 
-# Monitors show the section named like the monitor: location -> (section, vanilla page 1,
-# end there). Only page 1 is rewritten; it ends the dialogue unless the rest must still play.
+# Monitors show the section named like the monitor: location -> (section, vanilla page 1, end there). Only page 1 is rewritten; it ends the dialogue unless the rest must still play.
 MONITOR_DIALOGUE = {
-    "Power Monitor":      ("Power", "\xa402main generator+activated!\xc5", True),
-    "Gate Alpha Monitor": ("gateA", "\xa402main entrance security+gate alpha locked.\xc5", True),
-    "Gate Beta Monitor":  ("gateB", "\xa402main entrance security+gate beta locked.\xc5", True),
-    "Gate Gamma Monitor": ("gateC", "\xa402main entrance security+gate gamma locked.\xc5", True),
-    "Gate Delta Monitor": ("gateD", "\xa402main entrance security+gate delta locked.\xc5", True),
-    "Pillar 1 Monitor":   ("1", "\xa402*pillar 1 has now been unlocked*\xd6", True),
-    "Pillar 2 Monitor":   ("2", "\xa402*pillar 2 has now been unlocked*\xd6", True),
-    "Pillar 3 Monitor":   ("3", "\xa402*pillar 3 has now been unlocked*\xd6", True),
-    "Pillar 4 Monitor":   ("4", "\xa402*pillar 4 has now been unlocked*\xd6", True),
+    "Power Monitor (19-17)":      ("Power", "\xa402main generator+activated!\xc5", True),
+    "Gate Alpha Monitor (11-19)": ("gateA", "\xa402main entrance security+gate alpha locked.\xc5", True),
+    "Gate Beta Monitor (19-19)":  ("gateB", "\xa402main entrance security+gate beta locked.\xc5", True),
+    "Gate Gamma Monitor (11-20)": ("gateC", "\xa402main entrance security+gate gamma locked.\xc5", True),
+    "Gate Delta Monitor (19-20)": ("gateD", "\xa402main entrance security+gate delta locked.\xc5", True),
+    "Pillar 1 Monitor (14-08)":   ("1", "\xa402*pillar 1 has now been unlocked*\xd6", True),
+    "Pillar 2 Monitor (20-10)":   ("2", "\xa402*pillar 2 has now been unlocked*\xd6", True),
+    "Pillar 3 Monitor (12-12)":   ("3", "\xa402*pillar 3 has now been unlocked*\xd6", True),
+    "Pillar 4 Monitor (17-08)":   ("4", "\xa402*pillar 4 has now been unlocked*\xd6", True),
     "Password Monitor":   ("wrecked1", "\xa402success!\xc5", False),     # story and password follow
 }
+
 
 PICKUP_LOCATIONS = (set(PICKUP_DIALOGUE) | set(MONITOR_DIALOGUE)
                     | {ID_TO_LOCATION[loc_id] for e in INDEXED_DIALOGUE for _, _, loc_id in table_slots(e)})
@@ -115,15 +116,100 @@ KNOWN_KEYS = ({s for _, s in PICKUP_DIALOGUE.values()} | set(ITEM_DIALOGUE.value
               | {OFFWORLD_SECTION})
 PICKUP_REFRESH = 2.0                    # seconds between pickup message passes
 
+VALUES_SCAN = 256                       # Global Values /values reads (past the table end it reads junk)
+PILLAR_ENTRY = "mwya_pillar"            # patch entry that sends the MWYA Pillar's own input to the shadow superjump
+
+
+def pillar_redirected() -> bool:
+    """The pillar patch is live: "mwya" writes the shadow superjump, the labyrinth waits for the MWYA Pillar item."""
+    e = mem.ENTRY_BY_ID.get(PILLAR_ENTRY)
+    return bool(e and e.ready)
+
+
+def check_slot(name: str) -> int:
+    """Slot a location's check is read from: its shadow where a patch redirects it, else the real slot.
+
+    READ_REAL_FLAG (the pillar) sits in superjump_all's computed coverage, but only its own patch moves it.
+    """
+    slot, index = LOCATION_FLAG[name]
+    if name in READ_REAL_FLAG and not pillar_redirected():
+        return slot
+    return mem.read_slot_for(slot, index)
+
+
+def item_projected(name: str, slot: int, index: int) -> bool:
+    """The client owns this item's real flag: the game's own writer for it uses the shadow instead.
+
+    Writing a flag the game still writes itself would undo the player's own progress, or send its check.
+    """
+    if name in PILLAR_FLAG:
+        return pillar_redirected()
+    return mem.shadow_live(slot, index)
+
 @functools.cache
 def read_map() -> dict[int, dict[int, int]]:
     """{slot to read: {index: location id}}. Redirected flags are read from their shadow."""
     out: dict[int, dict[int, int]] = {}
     for name, (slot, index) in LOCATION_FLAG.items():
-        out.setdefault(mem.read_slot_for(slot, index), {})[index] = LOCATION_NAME_TO_ID[name]
+        out.setdefault(check_slot(name), {})[index] = LOCATION_NAME_TO_ID[name]
     return out
 
 
+@functools.cache
+def coupled_locations() -> frozenset[str]:
+    """Locations no patch entry redirects: the game's own flag is the check, so an old save sends them on connect."""
+    return frozenset(name for name, (slot, _) in LOCATION_FLAG.items() if check_slot(name) == slot)
+
+
+def flag_checked(loc_id: int, ch: str) -> bool:
+    """Code spots count on their exact character only (the spot may pass through others while "esa"
+    is typed), everything else on anything but '0'."""
+    if loc_id in CHECK_EXACT_IDS:
+        return ch == CHECK_CHAR_BY_ID[loc_id]
+    return ch != "0"
+
+
+def entered_signs(att) -> Counter:
+    """Sign items and the MWYA Pillar item for every redirected spot entered in the shadow or already set in the real flag.
+
+    For seeds without these items: each spot is then its own item, exactly like vanilla, so the redirect never
+    costs the maze anything. Reading the real flag too keeps a spot entered after the shadows are rewritten.
+    """
+    out = Counter()
+    for name, (slot, index, char) in {**SIGN_FLAG, **PILLAR_FLAG}.items():
+        if not item_projected(name, slot, index):
+            continue                                # no redirect: the game writes the real flag itself
+        for s in (mem.SHADOW_OF[slot], slot):
+            raw = att.read(s)
+            if raw is not None and index < len(raw) and raw[index] == char:
+                out[name] = 1
+    return out
+  
+def signs_redirected() -> bool:
+    """The code spot patch is live: the spots read and write the shadow mark."""
+    return any(mem.shadow_live(slot, index) for slot, index, _ in SIGN_FLAG.values())
+
+def push_mirror_flags(att) -> list[str]:
+    """Flags no item owns (Sign 8): whichever copy the game wrote, set both.
+
+    Redirected code reads and writes the shadow, everything else the real slot. Sign 8's spot look reads the
+    shadow, the maze the real mark.
+    """
+    changed = []
+    for name, (slot, index, char) in MIRROR_FLAGS.items():
+        if not mem.shadow_live(slot):
+            continue                                # nothing redirected in this slot: one copy only
+        shadow = mem.SHADOW_OF[slot]
+        real_s, shadow_s = att.read(slot), att.read(shadow)
+        if real_s is None or shadow_s is None or index >= min(len(real_s), len(shadow_s)):
+            continue
+        if char not in (real_s[index], shadow_s[index]):
+            continue
+        for s, cur in ((slot, real_s), (shadow, shadow_s)):
+            if cur[index] != char and att.write_char(s, index, char):
+                changed.append(f"{name}: {SLOTS[s][0]}[{index}] -> {char}")
+    return changed
+  
 def scan_checks(att) -> dict[int, str]:
     """{location id: flag char} for every check flag currently set."""
     found = {}
@@ -132,7 +218,7 @@ def scan_checks(att) -> dict[int, str]:
         if raw is None:
             continue
         for index, loc_id in indices.items():
-            if index < len(raw) and raw[index] != "0":
+            if index < len(raw) and flag_checked(loc_id, raw[index]):
                 found[loc_id] = raw[index]
     return found
 
@@ -140,9 +226,11 @@ def goal_reached(att, goal) -> bool:
     flag = GOAL_FLAGS.get(goal)
     if flag is None:
         return False
-    slot, index = flag
+    slot, index, *char = flag
     raw = att.read(mem.read_slot_for(slot, index))
-    return raw is not None and index < len(raw) and raw[index] != "0" 
+    if raw is None or index >= len(raw):
+        return False
+    return raw[index] == char[0] if char else raw[index] != "0"
 
 def push_ledger(att, ledger: dict[int, str]) -> int:
     """Write checked locations back into the shadows, one char at a time.
@@ -169,7 +257,7 @@ def push_inventory(att, counts: dict[str, int], write_diskettes: bool) -> list:
     """
     wants = [(slot, index, char, counts.get(name, 0) > 0)
              for name, (slot, index, char) in GRANT_FLAG.items()
-             if mem.shadow_live(slot, index)]
+             if item_projected(name, slot, index)]
     if write_diskettes:
         wants += [(4, index, "1", counts.get(name, 0) > 0) for name, index in DISKETTE_INDEX.items()]
 
@@ -229,6 +317,17 @@ def grant_access_level(att) -> str | None:
     if cur is None or index >= len(cur) or cur[index] != "0":
         return None
     return f"{SLOTS[slot][0]}[{index}] 0 -> {char}" if att.write_char(slot, index, char) else None
+  
+def grant_free_signs(att) -> list[str]:
+    """Code spots that come for free (Sign 8, mark[24]): entered from the start, in the real mark the maze reads
+    and in the shadow the spot looks at. Re-asserted every poll, so fresh shadows and reloaded saves get it too."""
+    changed = []
+    for name, (slot, index) in FREE_SIGN_FLAG.items():
+        for s in (slot, mem.SHADOW_OF[slot]) if mem.shadow_live(slot) else (slot,):
+            cur = att.read(s)
+            if cur is not None and index < len(cur) and cur[index] != SIGN_DONE and att.write_char(s, index, SIGN_DONE):
+                changed.append(f"{name}: {SLOTS[s][0]}[{index}] {cur[index]} -> {SIGN_DONE}")
+    return changed  
   
 def find_pickup_targets(att) -> list[tuple[int, int, str]]:
     """[(location id, key address, vanilla section)] for every pedestal whose key can be found.
@@ -309,7 +408,8 @@ def monitor_page(ctx, loc_id: int, vanilla: bytes, end: bool) -> bytes:
         page = MONITOR_OFFWORLD.encode("latin-1")
     else:
         name = ITEM_ID_TO_NAME.get(it.item)
-        if f"{name} Monitor" == ID_TO_LOCATION[loc_id]:     # the monitor's own item: its own text
+        own = GRANT_FLAG.get(name, ())[:2] == LOCATION_FLAG[ID_TO_LOCATION[loc_id]]
+        if own:                                             # the monitor's own item: its own text
             return vanilla
         section = ITEM_DIALOGUE.get(name)
         sections = dialogue_keys(ctx.att, section) if section else []
@@ -346,6 +446,39 @@ def push_pickup_texts(ctx) -> list[str]:
             changed.append(f"{ID_TO_LOCATION[loc_id]} -> [{want}]")
     return changed + push_monitor_texts(ctx)
   
+# every code spot (checks and the free one) in flag order
+# name -> (slot, index, done char)
+SIGN_FLAGS = {
+    **dict(sorted({**{name: (*LOCATION_FLAG[name], SIGN_DONE) for name in SIGN_LOCATIONS},
+                   **{name: (*flag, SIGN_DONE) for name, flag in FREE_SIGN_FLAG.items()}}.items(),
+                  key=lambda kv: kv[1])),
+    MAZE_PILLAR: (*LOCATION_FLAG[MAZE_PILLAR], CHECK_CHAR[MAZE_PILLAR]),
+}
+
+def sign_rows(att, ledger) -> list[tuple[str, int, int, str, bool, str, str]] | None:
+    """[(name, slot, index, char, entered, AP state, shadow char)] from the real flags the maze reads, or None.
+
+    The shadow char is what the spot itself shows once its patch is live ("" before that): the code spot patch
+    for the signs, the pillar patch for the MWYA Pillar.
+    """
+    live = {name: pillar_redirected() if name == MAZE_PILLAR else signs_redirected() for name in SIGN_FLAGS}
+    strings = {slot: att.read(slot) for slot, _, _ in SIGN_FLAGS.values()}
+    shadow_slots = {SIGN_FLAGS[name][0] for name, on in live.items() if on}
+    shadows = {slot: att.read(mem.SHADOW_OF[slot]) for slot in shadow_slots}
+    if None in strings.values() or None in shadows.values():
+        return None
+    rows = []
+    for name, (slot, index, done) in SIGN_FLAGS.items():
+        raw = strings[slot]
+        ch = raw[index] if index < len(raw) else "?"
+        sh = shadows[slot][index] if live[name] and index < len(shadows[slot]) else ""
+        if name in FREE_SIGN_FLAG:
+            state = "no check (free)"
+        else:
+            state = "checked" if LOCATION_NAME_TO_ID[name] in ledger else "-"
+        rows.append((name, slot, index, ch, ch == done, state, sh))
+    return rows  
+
 def kill_player(game) -> tuple[bool, str]:
     """HP counter to 0. (ok, message). The counter object, not Global Value 3 (see VALUE_DO_NOT_WRITE)."""
     before = game.read_counter(mem.OBJ_HP_COUNTER)
@@ -382,15 +515,23 @@ class ESACommandProcessor(ClientCommandProcessor):
         goal = Goal.name_lookup.get(ctx.goal, "unknown") if ctx.goal is not None else "not connected"
         self.output(f"goal: {goal}{'  (sent)' if ctx.finished_game else ''}")
         self.output(f"death link: {'on' if ctx.death_link else 'off'}")
-        self.output(f"ledger: {len(ctx.ledger)}/{len(LOCATION_NAME_TO_ID)} location(s) checked")
+        self.output(f"ledger: {len(ctx.ledger)}/{len(LOCATION_NAME_TO_ID)} location(s) checked, "
+                    f"{sum(LOCATION_NAME_TO_ID[n] in ctx.ledger for n in SIGN_LOCATIONS)}/"
+                    f"{len(SIGN_LOCATIONS)} code spots")
         counts = ctx.inventory_counts()
         ab = sum(1 for n in ABILITY_FLAG if counts.get(n))
         hp = min(8, sum(counts.get(n, 0) for n in HEALTH_ITEMS))
         dk = sum(1 for n in DISKETTE_INDEX if counts.get(n))
         mo = sum(1 for n in MONITOR_FLAG if counts.get(n))
+        sg = sum(1 for n in SIGN_FLAG if counts.get(n))
+        pillar = "yes" if counts.get(PILLAR_ITEM) else "no"
+        if not pillar_redirected():
+            pillar += " (pillar patch pending, the pillar runs vanilla)"
+        signs = (f", {sg}/{len(SIGN_FLAG)} signs, MWYA Pillar {pillar}" if ctx.signs_randomized
+                 else ", signs not in this seed")
         self.output(f"inventory: {ab}/{len(ABILITY_FLAG)} abilities, {hp}/8 health packs "
                     f"(hpmax {hpmax_for(hp)}), {dk}/{len(DISKETTE_INDEX)} diskettes, "
-                    f"{mo}/{len(MONITOR_FLAG)} monitors")
+                    f"{mo}/{len(MONITOR_FLAG)} monitors{signs}")
 
     def _cmd_slots(self):
         """Real vs shadow contents of every mirrored slot."""
@@ -458,14 +599,14 @@ class ESACommandProcessor(ClientCommandProcessor):
         found = set()
         for loc_id, addr, vanilla in sorted(att.pickup_targets):
             found.add(ID_TO_LOCATION[loc_id])
-            self.output(f"{ID_TO_LOCATION[loc_id]:<28} [{vanilla or 'own'}] -> "
+            self.output(f"{ID_TO_LOCATION[loc_id]:<36} [{vanilla or 'own'}] -> "
                         f"[{att.game.read_key(addr) or 'own'}]")
         for name, (section, _, _) in MONITOR_DIALOGUE.items():
             sections = dialogue_keys(att, section)
             page = att.game.read_ini_raw(sections[0], "1") if sections else None
             if page is not None:
                 found.add(name)
-                self.output(f"{name:<28} [{section}] -> {page.decode('latin-1')!r}")
+                self.output(f"{name:<36} [{section}] -> {page.decode('latin-1')!r}")
         missing = PICKUP_LOCATIONS - found
         if missing:
             self.output("not found: " + ", ".join(sorted(missing)))
@@ -520,6 +661,7 @@ class ESAContext(CommonContext):
         self.state = DETACHED
         self.write_diskettes = True
         self.goal: int | None = None        # Goal option value from slot_data
+        self.signs_randomized = False       # include_signs from slot_data: code spots are checks, Sign items in the pool
         self.items_synced = False
         self.seed_name = None
         self.last_shadow_generation = -1
@@ -529,7 +671,8 @@ class ESAContext(CommonContext):
         self.death_link = False
         self.hp_alive: bool | None = None   # HP > 0 at the last poll; None = no reading this frame yet
         self.pending_death: float | None = None     # monotonic time a DeathLink arrived, not yet applied
-        self.last_pickup_push = 0.0 
+        self.last_pickup_push = 0.0
+        self.values_snapshot: dict[int, float] | None = None     # /values
 
     async def server_auth(self, password_requested: bool = False):
         if password_requested and not self.password:
@@ -540,7 +683,7 @@ class ESAContext(CommonContext):
     def _mark_checked(self, loc_ids):
         for loc_id in loc_ids:
             self.ledger.setdefault(loc_id, CHECK_CHAR_BY_ID.get(loc_id, "1"))
-          
+
     def on_package(self, cmd: str, args: dict):
         if cmd == "RoomInfo":
             self.seed_name = args.get("seed_name")
@@ -557,12 +700,22 @@ class ESAContext(CommonContext):
             if self.goal is None:
                 logger.warning("slot_data carries no goal (seed from an older apworld?), "
                                "use /goal when you finish")
+            elif self.goal not in GOAL_FLAGS:
+                logger.info("goal %s has no game flag the client can watch yet, use /goal when you finish",
+                            Goal.name_lookup.get(self.goal, self.goal))
+            self.signs_randomized = bool(slot_data.get("include_signs"))
+            if self.signs_randomized and not pillar_redirected():
+                logger.info("MWYA Pillar: this client has no pillar patch yet, so typing \"mwya\" opens the "
+                            "labyrinth like vanilla and the MWYA Pillar item does nothing")
             self.death_link = bool(slot_data.get("death_link"))
             Utils.async_start(self.update_death_link(self.death_link), name="death link tag")
             if self.death_link:
                 logger.info("DeathLink is on")
             known = set(args.get("missing_locations", ())) | set(args.get("checked_locations", ()))
-            stray = sorted(set(LOCATION_NAME_TO_ID.values()) - known)
+            expected = set(LOCATION_NAME_TO_ID.values())
+            if not self.signs_randomized:
+                expected -= {LOCATION_NAME_TO_ID[n] for n in CODE_SPOT_LOCATIONS}
+            stray = sorted(expected - known)
             if stray:
                 logger.warning("the server does not know location id(s) %s: this client's tables "
                                "are out of step with the apworld", stray)
@@ -581,7 +734,7 @@ class ESAContext(CommonContext):
         super().on_deathlink(data)                  # logs it and records the time
         if self.death_link:
             self.pending_death = time.monotonic()   # the watcher applies it on the next live poll
-          
+
     def inventory_counts(self) -> dict[str, int]:
         """Item name -> count received. Sender and location don't matter (start inventory, item links)."""
         return Counter(name for it in self.items_received
@@ -668,7 +821,7 @@ async def death_link_tick(ctx: ESAContext):
         name = ctx.player_names.get(ctx.slot, "Someone")
         await ctx.send_death(f"{name} ran out of HP on Environmental Station Alpha.")
     ctx.hp_alive = alive
-  
+
 async def poll(ctx: ESAContext):
     att, ledger = ctx.att, ctx.ledger
     await death_link_tick(ctx)
@@ -682,7 +835,7 @@ async def poll(ctx: ESAContext):
     found = scan_checks(att)
     new = sorted(i for i in found if i not in ledger)
     auto_goal = goal_reached(att, ctx.goal)
-  
+
     if not ctx.baselined:
         ctx.baselined = True
         health = [i for i in new if LOCATION_FLAG[ID_TO_LOCATION[i]][0] == 0]
@@ -690,10 +843,10 @@ async def poll(ctx: ESAContext):
             logger.warning("baseline: %d Health Pack flag(s) already set in this save, sending them "
                            "as checks. If this is an old non-randomised save, start a new file.",
                            len(health))
-        coupled = sorted(ID_TO_LOCATION[i] for i in new if ID_TO_LOCATION[i] in COUPLED_LOCATIONS)
+        coupled = sorted(ID_TO_LOCATION[i] for i in new if ID_TO_LOCATION[i] in coupled_locations())
         if coupled:
-            logger.warning("baseline: %d story flag(s) already set in this save (%s), sending them "
-                           "as checks. Start a new file if that was not intended.",
+            logger.warning("baseline: %d flag(s) the game keeps itself are already set in this save (%s), "
+                           "sending them as checks. Start a new file if that was not intended.",
                            len(coupled), ", ".join(coupled))
         if auto_goal and not ctx.finished_game:
             logger.warning("baseline: the goal is already reached in this save, sending it. Start a new file if that was not intended.")
@@ -708,7 +861,15 @@ async def poll(ctx: ESAContext):
         await ctx.send_goal()
 
     push_ledger(att, ledger)
-    for line in push_inventory(att, ctx.inventory_counts(), ctx.write_diskettes):
+    if ctx.signs_randomized or signs_redirected():   # the redirect stops the game entering Sign 8 itself
+        for line in grant_free_signs(att):
+            logger.debug("free sign: %s", line)
+    for line in push_mirror_flags(att):
+        logger.debug("mirror: %s", line)
+    counts = ctx.inventory_counts()
+    if not ctx.signs_randomized:
+        counts.update(entered_signs(att))           # no Sign items in this seed: entered spots count as vanilla
+    for line in push_inventory(att, counts, ctx.write_diskettes):
         logger.debug("grant: %s", line)
     now = time.monotonic()
     if now - ctx.last_pickup_push >= PICKUP_REFRESH:
