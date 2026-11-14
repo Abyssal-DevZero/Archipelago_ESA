@@ -13,8 +13,11 @@ from itertools import product
 from .data import (
     ITEMDATA_INDEX,
     KEY_INDEX,
+    LOCATION_FLAG,
     LOCATION_NAME_TO_ID,
+    MAZE_PILLAR,
     MONITOR_INDEX,
+    SIGN_LOCATIONS,
 )
 
 INI_RESOURCE = "data/glitchlesslogic.ini"
@@ -35,64 +38,97 @@ FLAG_TOKEN_LOCATIONS = {
 }
 
 TELEPORT_HUB_REGION = "Teleport Network"
+JUNGLE_TELEPORT_PAD = "1"           # "Jungle Start tp": the [Jungle Teleport] of the sign notes
 
 # Edges where the ini gets adjusted for Archipelago: (source, target) -> replacement expression.
 EDGE_OVERRIDES = {
     # Jungle 1 -> Deep Jungle tp. ini: "jump&hook|vdash&charge" (This change attempts at moving the teleportaccess outside of the jungle, making it much harder to softlock oneself out of the jungle and temple)
     ("114", "49"): "jump&hook|vdash&charge&tpaccess&poweron&hdash",
 }
+# EYE SIGN LOGIC (Thanks to Greendjssa)
+SIGN_LOGIC: dict[str, tuple[str, ...]] = {
+    "Sign Location 1 (03-08)": ("jump&hook&charge", "vdash&charge"),                 # @03-08, middle of the room
+    "Sign Location 2 (21-14)": ("jump&hook&charge", "vdash&charge"),                 # @21-14, in front of the statue
+    "Sign Location 3 (Planet Surface)": ("poweron&gold&triple&charge&vdash&hdash&xdash",),    # planet surface, after the gauntlet
+    "Sign Location 4 (07-11)": ("vdash&hdash", "vdash&charge"),                      # @07-11, under the warp
+    "Sign Location 5 (11-06)": ("gold&jump", "vdash"),                               # @11-06, above the Dash Booster V spot
+    "Sign Location 6 (12-18)": ("vdash&gold", "vdash&charge&jump", "vdash&charge&hook",
+                        "vdash&bike&jump&hook", "xv"),                       # @12-18, blue flower
+    "Sign Location 7 (15-22)": ("gates&vdash&charge&hook", "gates&vdash&charge&hdash&gold",
+                        "gates&vdash&charge&hdash&jump"),                    # @15-22, on top of the boss (all four gates)
+    # Sign Location 8: the game enters it itself, no check
+    "Sign Location 9 (Death-Laser Room)": ("xv&poweron&keys&map&charge&heatsuit",),             # death-laser room, the crystal
+    "Sign Location 10 (24-20)": ("hdash&poweron&charge&jump&hook&password",          # @24-20, round window
+                         "hdash&poweron&charge&vdash&jump&password",
+                         "hdash&poweron&charge&vdash&triple&password",
+                         "hdash&poweron&charge&vdash&gold",
+                         "hdash&poweron&xv&password",
+                         "hdash&poweron&xv&gold",
+                         "xv&charge",                                        # secret room, lower path
+                         "jungletp&vdash&poweron",                           # secret room, through the temple
+                         "jungletp&jump&hook&hdash&poweron"),
+    "Sign Location 11 (26-17)": ("charge&vdash",),                                   # @26-17, the missing Supercharge Module
+    "Sign Location 12 (18-01)": ("jungletp&xv",),                                    # @18-01, where you met the Eagle
+    "Sign Location 13 (28-08)": ("hook&vdash", "hook&jump", "xv"),                   # @28-08, end of the hookshot course
+    "Sign Location 14 (25-00)": ("jungletp&poweron&hook&jump",                       # @25-00, floating block (no way out without hdash)
+                         "jungletp&poweron&hook&vdash",
+                         "xv"),
+}
+
+# MWYA Pillar
+MAZE_PILLAR_LOGIC: tuple[str, ...] = ("charge&jump", "charge&vdash")
 
 # The logic ini's item index is also its node id. Location names do not always match item names ("The Bike" lives at "Bike Spot"), so the mapping is explicit and checked against data.py at import.
 # TODO: Index 39 (CROWN) is not implemented yet as the crown has some... unique coding attached to it
 ITEM_INDEX_TO_LOCATION = {
-    0: "Jump Booster Spot",
-    1: "Hookshot Spot",
-    2: "Teleport Access Spot",
-    3: "Propeller Spot",
-    4: "Charge Shot Spot",
-    5: "Dash Booster H Spot",
-    6: "Heat-Resistant suit Spot",
-    7: "Gold Keycard Spot",
-    8: "Dash Booster V Spot",
-    9: "Rough Map Spot",
-    10: "Triple Shot Spot",
-    11: "Plasma Shield Spot",
-    12: "Supercharge Module Spot",
-    13: "Dash Booster X Spot",
+    0: "Jump Booster Spot (13-13)",
+    1: "Hookshot Spot (26-10)",
+    2: "Teleport Access Spot (11-19)",
+    3: "Propeller Spot (01-20)",
+    4: "Charge Shot Spot (00-08)",
+    5: "Dash Booster H Spot (05-03)",
+    6: "Heat-Resistant suit Spot (25-08)",
+    7: "Gold Keycard Spot (29-19)",
+    8: "Dash Booster V Spot (11-07)",
+    9: "Rough Map Spot (19-12)",
+    10: "Triple Shot Spot (15-04)",
+    11: "Plasma Shield Spot (03-15)",
+    12: "Supercharge Module Spot (28-15)",
+    13: "Dash Booster X Spot (22-12)",
     14: "Bike Spot",
-    15: "Health Pack Beetle Spot",
-    16: "Health Pack SandTop Spot",
-    17: "Health Pack FireLow Spot",
-    18: "Health Pack Temple Spot",
-    19: "Health Pack FireHigh Spot",
-    20: "Health Pack SandBottom Spot",
-    21: "Health Pack Ship Spot",
-    22: "Health Pack Water Spot",
-    23: "Diskette Water Spot",
-    24: "Diskette Depthsmaze Spot",
-    25: "Diskette Caves Spot",
-    26: "Diskette Jungle Spot",
-    27: "Diskette TempleLeft Spot",
-    28: "Diskette FireLava Spot",
-    29: "Diskette TempleTall Spot",
-    30: "Diskette Security Spot",
-    31: "Diskette SandMid Spot",
-    32: "Diskette SandBot Spot",
-    33: "Diskette FireTop Spot",
-    34: "Diskette Ship Spot",
+    15: "Health Pack Beetle Spot (15-12)",
+    16: "Health Pack SandTop Spot (11-13)",
+    17: "Health Pack FireLow Spot (26-14)",
+    18: "Health Pack Temple Spot (23-04)",
+    19: "Health Pack FireHigh Spot (26-12)",
+    20: "Health Pack SandBottom Spot (06-16)",
+    21: "Health Pack Ship Spot (31-24)",
+    22: "Health Pack Water Spot (02-13)",
+    23: "Diskette Water Spot (04-13)",
+    24: "Diskette Depthsmaze Spot (17-16)",
+    25: "Diskette Caves Spot (18-10)",
+    26: "Diskette Jungle Spot (17-00)",
+    27: "Diskette TempleLeft Spot (23-07)",
+    28: "Diskette FireLava Spot (25-15)",
+    29: "Diskette TempleTall Spot (29-03)",
+    30: "Diskette Security Spot (19-18)",
+    31: "Diskette SandMid Spot (10-14)",
+    32: "Diskette SandBot Spot (07-18)",
+    33: "Diskette FireTop Spot (23-09)",
+    34: "Diskette Ship Spot (25-19)",
     35: "Key Mwyah Spot",
-    36: "Key Fire Spot",
-    37: "Key Caves Spot",
-    38: "Key Temple Spot",
-    40: "Power Monitor",
-    41: "Gate Alpha Monitor",
-    42: "Gate Beta Monitor",
-    43: "Gate Gamma Monitor",
-    44: "Gate Delta Monitor",
-    45: "Pillar 1 Monitor",
-    46: "Pillar 2 Monitor",
-    47: "Pillar 3 Monitor",
-    48: "Pillar 4 Monitor",
+    36: "Key Fire Spot (19-13)",
+    37: "Key Caves Spot (15-09)",
+    38: "Key Temple Spot (22-02)",
+    40: "Power Monitor (19-17)",
+    41: "Gate Alpha Monitor (11-19)",
+    42: "Gate Beta Monitor (19-19)",
+    43: "Gate Gamma Monitor (11-20)",
+    44: "Gate Delta Monitor (19-20)",
+    45: "Pillar 1 Monitor (14-08)",
+    46: "Pillar 2 Monitor (20-10)",
+    47: "Pillar 3 Monitor (12-12)",
+    48: "Pillar 4 Monitor (17-08)",
 }
 
 @dataclass(frozen=True)
@@ -128,7 +164,13 @@ def _read_ini() -> str:
             f"{INI_RESOURCE} is missing from the ESA apworld. The logic graph is parsed from it at import time, so the world cannot load without it."
         )
     return raw.decode("utf-8", errors="ignore")
-
+    
+def _minimal(terms) -> tuple[frozenset[str], ...]:
+    """Drop every term a smaller one already covers, in a deterministic order."""
+    terms = set(terms)
+    minimal = [t for t in terms if not any(other < t for other in terms)]  # absorption
+    return tuple(sorted(minimal, key=lambda t: (len(t), sorted(t))))
+    
 def _parse_expression(expression: str) -> tuple[frozenset[str], ...]:
     """'|' binds tighter than '&': 'jump|hook&vdash|xv' == (jump|hook) & (vdash|xv).
     Returned as a sum of products. () means impassable, (frozenset(),) means free."""
@@ -144,10 +186,12 @@ def _parse_expression(expression: str) -> tuple[frozenset[str], ...]:
         clauses.append(frozenset(options))
     if not clauses:
         return (frozenset(),)
-    terms = {frozenset(combo) for combo in product(*clauses)}
-    minimal = [t for t in terms if not any(other < t for other in terms)]  # absorption
-    return tuple(sorted(minimal, key=lambda t: (len(t), sorted(t))))      # deterministic order
-
+    return _minimal(frozenset(combo) for combo in product(*clauses))
+    
+def _parse_alternatives(alternatives: tuple[str, ...]) -> tuple[frozenset[str], ...]:
+    """Sum of products written out as a list, one ini expression per alternative."""
+    return _minimal(term for alternative in alternatives for term in _parse_expression(alternative))
+    
 def _region_name(node_id: str, name: str) -> str:
     """Region names must be unique and stable; ini names are neither on their own."""
     return f"{name} ({node_id})"
@@ -301,9 +345,19 @@ ALL_TOKENS: frozenset[str] = frozenset(
     token for edge in EDGES for term in edge.terms for token in term
 )
 
+# code spot location -> sum of products, all in the start region
+SIGN_REGION: str = START_REGION
+SIGN_TERMS: dict[str, tuple[frozenset[str], ...]] = {
+    name: _parse_alternatives(alternatives) for name, alternatives in SIGN_LOGIC.items()
+}
+SIGN_TOKENS: frozenset[str] = frozenset(
+    token for terms in SIGN_TERMS.values() for term in terms for token in term
+)
+MAZE_PILLAR_TERMS: tuple[frozenset[str], ...] = _parse_alternatives(MAZE_PILLAR_LOGIC)
+
 def _validate() -> None:
     """Fail at import rather than halfway through generation."""
-    mapped = set(ITEM_INDEX_TO_LOCATION.values()) | set(FLAG_TOKEN_LOCATIONS.values())
+    mapped = (set(ITEM_INDEX_TO_LOCATION.values()) | set(FLAG_TOKEN_LOCATIONS.values()) | set(SIGN_LOGIC) | {MAZE_PILLAR})
 
     unknown = mapped - set(LOCATION_NAME_TO_ID)
     if unknown:
@@ -311,8 +365,24 @@ def _validate() -> None:
 
     unmapped = set(LOCATION_NAME_TO_ID) - mapped
     if unmapped:
-        raise ValueError(f"data.py defines locations no ini node holds: {sorted(unmapped)}")
+        raise ValueError(f"data.py defines locations no ini node or sign rule holds: {sorted(unmapped)}")
+        
+    no_char = sorted(set(SIGN_LOGIC) - set(SIGN_LOCATIONS))
+    if no_char:
+        raise ValueError(f"code spots without a SIGN_DONE entry in data.CHECK_CHAR: {no_char}")
+        
+    no_rule = sorted(set(SIGN_LOCATIONS) - set(SIGN_LOGIC))
+    if no_rule:
+        raise ValueError(f"code spots without a rule in SIGN_LOGIC: {no_rule}")
 
+    no_flag = sorted(name for name in (*SIGN_LOCATIONS, MAZE_PILLAR) if name not in LOCATION_FLAG)
+    if no_flag:
+        raise ValueError(f"code spots without a LOCATION_FLAG entry in data.py: {no_flag}")
+
+    impassable = sorted(name for name, terms in SIGN_TERMS.items() if not terms)
+    if impassable:
+        raise ValueError(f"sign rules that can never be met: {impassable}")
+    
     flag_tokens = set(FLAG_TOKEN_LOCATIONS) | set(FLAG_TOKEN_EVENTS)
 
     overlap = set(FLAG_TOKEN_LOCATIONS) & set(FLAG_TOKEN_EVENTS)
@@ -325,7 +395,7 @@ def _validate() -> None:
         
     conflicting = (FREE_TOKENS & DROPPED_TOKENS) | (set(TOKEN_ALIASES) & (FREE_TOKENS | DROPPED_TOKENS))
     if conflicting:
-        raise ValueError(f"tokens with more than one meaning (free, dropped, aliased): {sorted(conflicting)}") 
+        raise ValueError(f"tokens with more than one meaning (free, dropped, aliased): {sorted(conflicting)}")
         
     ungranted = flag_tokens - set(FLAG_GRANTS)
     if ungranted:
@@ -339,8 +409,8 @@ def _validate() -> None:
     stray = set(ITEM_INDEX_TO_LOCATION) - known_indices
     if stray:
         raise ValueError(f"logic maps item indices data.py does not know: {sorted(stray)}")
-
-    placed = set(ITEM_NODES.values())
+        
+    placed = set(ITEM_NODES.values()) | set(SIGN_TERMS) | {MAZE_PILLAR}
     missing = mapped - placed
     if missing:
         raise ValueError(f"locations with no node to live in: {sorted(missing)}")
@@ -348,4 +418,8 @@ def _validate() -> None:
     orphan_pads = set(TELEPORT_PADS) - set(TELEPORT_FINDS)
     if orphan_pads:
         raise ValueError(f"teleporters that can never be found: {sorted(orphan_pads)}")
+        
+    jungle = TELEPORT_PADS.get(JUNGLE_TELEPORT_PAD)
+    if jungle is None or NODES[jungle].name != "Jungle Start tp":
+        raise ValueError(f"teleporter {JUNGLE_TELEPORT_PAD} is not the Jungle Start tp the sign rules expect")
 _validate()
