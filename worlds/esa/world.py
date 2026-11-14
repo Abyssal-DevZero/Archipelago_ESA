@@ -26,6 +26,14 @@ class ESAWorld(World):
     def create_regions(self) -> None:
         regions.create_and_connect_regions(self)
         locations.create_all_locations(self)
+        
+    def generate_early(self) -> None:
+        if self.options.goal == esa_options.Goal.option_maze:
+            self.options.include_signs.value = True     # the maze needs every code spot
+
+    @property
+    def signs_included(self) -> bool:
+        return bool(self.options.include_signs)
 
     def set_rules(self) -> None:
         rules.set_all_rules(self)
@@ -43,6 +51,7 @@ class ESAWorld(World):
         data = self.options.as_dict(
             "start_with_jump_booster",
             "goal",
+            "include_signs",
             "death_link",
         )
         data["seed_name"] = self.multiworld.seed_name
